@@ -5,19 +5,25 @@ and triggers resume popups when the user returns to a
 previously visited window after the configured threshold.
 """
 
-import time
+import collections
 import logging
-from dataclasses import dataclass, field
-from typing import Optional, Callable
+import time
+from dataclasses import dataclass
+from typing import Callable, Optional
 
-from .window_monitor import get_active_window
 from .database import SwitchLogger
+from .window_monitor import get_active_window
 
 logger = logging.getLogger(__name__)
+
+# Keep at most this many window history entries to bound memory.
+_MAX_HISTORY = 500
 
 
 @dataclass
 class WindowState:
+    """Snapshot of the currently focused window."""
+
     title: str
     app_name: str
     entered_at: float
@@ -28,6 +34,7 @@ class WindowState:
 @dataclass
 class ResumeInfo:
     """Data passed to the popup when user returns to a window."""
+
     window_title: str
     app_name: str
     away_seconds: float
@@ -52,15 +59,15 @@ class ContextTracker:
 
     Parameters
     ----------
-    db : SwitchLogger
+    db:
         Database logger instance.
-    away_threshold : float
+    away_threshold:
         Seconds of absence before showing a resume popup (default 30).
-    on_resume : callable, optional
-        Called with ResumeInfo when user returns after threshold.
-    on_switch : callable, optional
-        Called on every context switch with (from_title, to_title).
-    poll_interval : float
+    on_resume:
+        Called with *ResumeInfo* when user returns after threshold.
+    on_switch:
+        Called on every context switch with *(from_title, to_title)*.
+    poll_interval:
         Seconds between active window checks (default 1.0).
     """
 
@@ -71,7 +78,7 @@ class ContextTracker:
         on_resume: Optional[Callable[[ResumeInfo], None]] = None,
         on_switch: Optional[Callable[[str, str], None]] = None,
         poll_interval: float = 1.0,
-    ):
+    ) -> None:
         self.db = db
         self.away_threshold = away_threshold
         self.on_resume = on_resume
@@ -79,8 +86,10 @@ class ContextTracker:
         self.poll_interval = poll_interval
 
         self._current: Optional[WindowState] = None
-        # Track the last time each window was active: title -> (left_at, last_context)
-        self._window_history: dict[str, tuple[float, str]] = {}
+        # Bounded LRU dict: title -> (left_at, last_context)
+        self._window_history: collections.OrderedDict[
+            str, tuple[float, str]
+        ] = collections.OrderedDict()
         self._running = False
 
     @property
@@ -89,20 +98,27 @@ class ContextTracker:
 
     def start(self) -> None:
         self._running = True
+        logger.info("Context tracker started (threshold=%ss)", self.away_threshold)
 
     def stop(self) -> None:
         self._running = False
-        if self._current and self._current.session_id:
+        if self._current and self._current.session_id is not None:
             self.db.end_session(
                 self._current.session_id, self._current.last_context
             )
+        logger.info("Context tracker stopped")
 
     def poll(self) -> None:
         """Check the active window once. Call this from a QTimer."""
         if not self._running:
             return
 
-        title, app_name = get_active_window()
+        try:
+            title, app_name = get_active_window()
+        except Exception:
+            logger.debug("Window detection failed during poll", exc_info=True)
+            return
+
         if not title:
             return
 
@@ -117,11 +133,16 @@ class ContextTracker:
 
         # Close previous session
         if prev:
-            if prev.session_id:
+            if prev.session_id is not None:
                 self.db.end_session(prev.session_id, prev.last_context)
             self._window_history[prev.title] = (now, prev.last_context)
+            # Move to end (most-recently used) and enforce size cap.
+            self._window_history.move_to_end(prev.title)
+            while len(self._window_history) > _MAX_HISTORY:
+                self._window_history.popitem(last=False)
 
         # Check if we're returning to a known window
+        away: float = 0
         if title in self._window_history:
             left_at, last_ctx = self._window_history[title]
             away = now - left_at
@@ -132,9 +153,10 @@ class ContextTracker:
                     away_seconds=away,
                     last_context=last_ctx or _extract_context(title),
                 )
-                self.on_resume(info)
-        else:
-            away = 0
+                try:
+                    self.on_resume(info)
+                except Exception:
+                    logger.exception("Error in on_resume callback")
 
         # Log switch
         if prev:
@@ -144,7 +166,10 @@ class ContextTracker:
                 away_seconds=away,
             )
             if self.on_switch:
-                self.on_switch(prev.title, title)
+                try:
+                    self.on_switch(prev.title, title)
+                except Exception:
+                    logger.exception("Error in on_switch callback")
 
         # Start new session
         session_id = self.db.start_session(title, app_name)
@@ -163,19 +188,20 @@ class ContextTracker:
 
     def update_away_threshold(self, seconds: float) -> None:
         self.away_threshold = seconds
+        logger.info("Away threshold updated to %ss", seconds)
 
 
 def _extract_context(window_title: str) -> str:
     """Extract a useful context hint from a window title.
 
     Tries to pull file names, document titles, or URLs from
-    common title bar formats like:
-      "main.py - MyProject - VS Code"
-      "Report.docx - Microsoft Word"
-      "GitHub - Pull Request #42 - Firefox"
+    common title bar formats like::
+
+        main.py - MyProject - VS Code
+        Report.docx - Microsoft Word
+        GitHub - Pull Request #42 - Firefox
     """
     if not window_title:
         return ""
     parts = [p.strip() for p in window_title.split(" - ")]
-    # First part is usually the most specific (file name, doc title)
     return parts[0] if parts else window_title

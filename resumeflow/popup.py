@@ -1,12 +1,22 @@
 """Non-intrusive floating resume popup widget."""
 
+import logging
+
+from PyQt6.QtCore import QPoint, Qt, pyqtSignal
+from PyQt6.QtGui import QCursor, QFont
 from PyQt6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
+    QApplication,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
 )
-from PyQt6.QtCore import Qt, QTimer, QPoint, pyqtSignal
-from PyQt6.QtGui import QFont, QCursor
 
 from .context_tracker import ResumeInfo
+
+logger = logging.getLogger(__name__)
 
 
 class ResumePopup(QWidget):
@@ -20,7 +30,7 @@ class ResumePopup(QWidget):
     Signals
     -------
     task_submitted(str)
-        Emitted with the micro-task text when user clicks Ready or presses Enter.
+        Emitted with the micro-task text when user clicks *Go* or presses Enter.
     dismissed()
         Emitted when popup is closed without a task.
     """
@@ -28,7 +38,7 @@ class ResumePopup(QWidget):
     task_submitted = pyqtSignal(str)
     dismissed = pyqtSignal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint
@@ -40,6 +50,8 @@ class ResumePopup(QWidget):
 
         self._setup_ui()
         self._setup_style()
+
+    # -- UI setup ---------------------------------------------------------
 
     def _setup_ui(self) -> None:
         layout = QVBoxLayout(self)
@@ -146,15 +158,13 @@ class ResumePopup(QWidget):
             }
         """)
 
+    # -- public API -------------------------------------------------------
+
     def show_resume(self, info: ResumeInfo, position: str = "cursor") -> None:
         """Populate and display the popup for a resume event."""
-        self._away_label.setText(
-            f"You were away for {info.away_display}."
-        )
+        self._away_label.setText(f"You were away for {info.away_display}.")
         context_text = info.last_context or info.window_title
-        self._context_label.setText(
-            f"You were working on: {context_text}"
-        )
+        self._context_label.setText(f"You were working on: {context_text}")
         self._task_input.clear()
         self._task_input.setFocus()
 
@@ -163,34 +173,31 @@ class ResumePopup(QWidget):
         self.show()
         self.raise_()
         self.activateWindow()
+        logger.debug("Resume popup shown (away %s)", info.away_display)
+
+    # -- positioning ------------------------------------------------------
 
     def _position_popup(self, mode: str) -> None:
+        screen = QApplication.primaryScreen()
         cursor_pos = QCursor.pos()
-        if mode == "top-right":
-            from PyQt6.QtWidgets import QApplication
-            screen = QApplication.primaryScreen()
-            if screen:
-                geo = screen.availableGeometry()
-                self.move(geo.right() - self.width() - 20, geo.top() + 20)
-                return
-        elif mode == "bottom-right":
-            from PyQt6.QtWidgets import QApplication
-            screen = QApplication.primaryScreen()
-            if screen:
-                geo = screen.availableGeometry()
-                self.move(
-                    geo.right() - self.width() - 20,
-                    geo.bottom() - self.height() - 20,
-                )
-                return
 
-        # Default: near cursor, offset so it doesn't cover click target
+        if mode == "top-right" and screen:
+            geo = screen.availableGeometry()
+            self.move(geo.right() - self.width() - 20, geo.top() + 20)
+            return
+
+        if mode == "bottom-right" and screen:
+            geo = screen.availableGeometry()
+            self.move(
+                geo.right() - self.width() - 20,
+                geo.bottom() - self.height() - 20,
+            )
+            return
+
+        # Default: near cursor
         x = cursor_pos.x() + 20
         y = cursor_pos.y() + 20
 
-        # Keep on screen
-        from PyQt6.QtWidgets import QApplication
-        screen = QApplication.primaryScreen()
         if screen:
             geo = screen.availableGeometry()
             if x + self.width() > geo.right():
@@ -201,6 +208,8 @@ class ResumePopup(QWidget):
             y = max(y, geo.top())
 
         self.move(QPoint(x, y))
+
+    # -- slots ------------------------------------------------------------
 
     def _on_submit(self) -> None:
         text = self._task_input.text().strip()

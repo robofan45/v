@@ -1,18 +1,32 @@
 """Settings dialog for adjusting ResumeFlow preferences."""
 
-from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QSpinBox,
-    QComboBox, QLineEdit, QDialogButtonBox, QGroupBox,
-    QFormLayout, QDoubleSpinBox,
-)
-from PyQt6.QtCore import Qt
+import re
+
 from PyQt6.QtGui import QFont
+from PyQt6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
+    QDoubleSpinBox,
+    QFormLayout,
+    QGroupBox,
+    QLabel,
+    QLineEdit,
+    QMessageBox,
+    QSpinBox,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .settings_manager import AppSettings
 
+_TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
+
 
 class SettingsDialog(QDialog):
-    def __init__(self, settings: AppSettings, parent=None):
+    """Modal dialog for editing application settings."""
+
+    def __init__(self, settings: AppSettings, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("ResumeFlow Settings")
         self.setMinimumWidth(400)
@@ -80,7 +94,7 @@ class SettingsDialog(QDialog):
             QDialogButtonBox.StandardButton.Ok
             | QDialogButtonBox.StandardButton.Cancel
         )
-        buttons.accepted.connect(self.accept)
+        buttons.accepted.connect(self._validate_and_accept)
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
@@ -95,6 +109,21 @@ class SettingsDialog(QDialog):
         self._duration_spin.setValue(s.popup_duration)
         self._quiet_start.setText(s.quiet_hours_start)
         self._quiet_end.setText(s.quiet_hours_end)
+
+    def _validate_and_accept(self) -> None:
+        """Validate quiet-hours format before accepting."""
+        start = self._quiet_start.text().strip()
+        end = self._quiet_end.text().strip()
+        # Both empty is fine (quiet hours disabled).
+        if start or end:
+            if not (_TIME_RE.match(start) and _TIME_RE.match(end)):
+                QMessageBox.warning(
+                    self,
+                    "Invalid time",
+                    "Quiet hours must be in HH:MM format (e.g. 22:00).",
+                )
+                return
+        self.accept()
 
     def get_settings(self) -> AppSettings:
         return AppSettings(

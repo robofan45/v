@@ -1,17 +1,29 @@
 """Weekly report dialog showing context switch statistics."""
 
-from PyQt6.QtWidgets import (
-    QDialog, QVBoxLayout, QLabel, QTableWidget, QTableWidgetItem,
-    QHeaderView, QDialogButtonBox,
-)
+import logging
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QFont
+from PyQt6.QtWidgets import (
+    QDialog,
+    QDialogButtonBox,
+    QHeaderView,
+    QLabel,
+    QTableWidget,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
 from .database import SwitchLogger
 
+logger = logging.getLogger(__name__)
+
 
 class ReportDialog(QDialog):
-    def __init__(self, db: SwitchLogger, parent=None):
+    """Modal dialog displaying a weekly context-switch report."""
+
+    def __init__(self, db: SwitchLogger, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("ResumeFlow \u2014 Weekly Report")
         self.setMinimumSize(500, 350)
@@ -27,7 +39,12 @@ class ReportDialog(QDialog):
         layout.addWidget(title)
 
         # Daily score
-        score_data = self._db.daily_score()
+        try:
+            score_data = self._db.daily_score()
+        except Exception:
+            logger.exception("Failed to load daily score for report")
+            score_data = {"score": 0, "total_today": 0, "per_hour": 0}
+
         score_label = QLabel(
             f"Today's Score: {score_data['score']}/100  |  "
             f"Switches today: {score_data['total_today']}  |  "
@@ -38,7 +55,12 @@ class ReportDialog(QDialog):
         layout.addWidget(score_label)
 
         # Table
-        report = self._db.weekly_report()
+        try:
+            report = self._db.weekly_report()
+        except Exception:
+            logger.exception("Failed to load weekly report data")
+            report = []
+
         table = QTableWidget(len(report), 4)
         table.setHorizontalHeaderLabels(
             ["Date", "Switches", "Avg Away (s)", "Max Away (s)"]
@@ -49,12 +71,12 @@ class ReportDialog(QDialog):
         table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
 
         for row, entry in enumerate(report):
-            table.setItem(row, 0, QTableWidgetItem(entry["day"]))
-            table.setItem(row, 1, QTableWidgetItem(str(entry["switches"])))
-            avg = f"{entry['avg_away']:.0f}" if entry["avg_away"] else "0"
-            table.setItem(row, 2, QTableWidgetItem(avg))
-            max_away = f"{entry['max_away']:.0f}" if entry["max_away"] else "0"
-            table.setItem(row, 3, QTableWidgetItem(max_away))
+            table.setItem(row, 0, QTableWidgetItem(str(entry.get("day", ""))))
+            table.setItem(row, 1, QTableWidgetItem(str(entry.get("switches", 0))))
+            avg = entry.get("avg_away", 0) or 0
+            table.setItem(row, 2, QTableWidgetItem(f"{avg:.0f}"))
+            max_away = entry.get("max_away", 0) or 0
+            table.setItem(row, 3, QTableWidgetItem(f"{max_away:.0f}"))
 
         layout.addWidget(table)
 

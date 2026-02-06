@@ -4,74 +4,89 @@ Uses platform-specific APIs:
 - Windows: pygetwindow + psutil
 - macOS: AppKit (pyobjc)
 - Linux: Xlib via subprocess (xdotool)
+
+Every public function guarantees a safe ``("", "")`` return on failure.
 """
 
-import sys
-import subprocess
 import logging
+import shlex
+import subprocess
+import sys
 
 logger = logging.getLogger(__name__)
+
+# Subprocess timeout for external tools (seconds).
+_CMD_TIMEOUT = 2
 
 
 def _get_active_window_windows() -> tuple[str, str]:
     """Get active window title and app name on Windows."""
     try:
-        import pygetwindow as gw
+        import pygetwindow as gw  # type: ignore[import-untyped]
         import psutil
+    except ImportError:
+        logger.warning("pygetwindow/psutil not installed; window tracking disabled")
+        return ("", "")
 
+    try:
         win = gw.getActiveWindow()
         if win is None:
             return ("", "")
         title = win.title or ""
-        # Try to get process name via win32 APIs
         app_name = ""
         try:
             import ctypes
             from ctypes import wintypes
 
-            user32 = ctypes.windll.user32
+            user32 = ctypes.windll.user32  # type: ignore[attr-defined]
             hwnd = user32.GetForegroundWindow()
             pid = wintypes.DWORD()
             user32.GetWindowThreadProcessId(hwnd, ctypes.byref(pid))
             proc = psutil.Process(pid.value)
             app_name = proc.name()
-        except Exception:
-            app_name = title.split(" - ")[-1] if " - " in title else ""
+        except (psutil.NoSuchProcess, psutil.AccessDenied, OSError) as exc:
+            logger.debug("Could not resolve process name: %s", exc)
+            app_name = title.rsplit(" - ", 1)[-1] if " - " in title else ""
         return (title, app_name)
-    except ImportError:
-        logger.warning("pygetwindow not available; window tracking disabled on Windows")
+    except Exception:
+        logger.debug("Windows active-window detection failed", exc_info=True)
         return ("", "")
 
 
 def _get_active_window_macos() -> tuple[str, str]:
     """Get active window title and app name on macOS."""
     try:
-        from AppKit import NSWorkspace
+        from AppKit import NSWorkspace  # type: ignore[import-untyped]
+    except ImportError:
+        logger.warning("AppKit (pyobjc) not installed; window tracking disabled")
+        return ("", "")
 
+    try:
         active_app = NSWorkspace.sharedWorkspace().activeApplication()
         if active_app is None:
             return ("", "")
         app_name = active_app.get("NSApplicationName", "")
-        # Get window title via accessibility or applescript
         title = app_name
         try:
+            # Use shlex.quote to prevent command injection via app names.
+            safe_name = shlex.quote(app_name)
             script = (
                 'tell application "System Events" to get name of first window '
-                f'of (first process whose name is "{app_name}")'
+                f"of (first process whose name is {safe_name})"
             )
             result = subprocess.run(
                 ["osascript", "-e", script],
                 capture_output=True,
                 text=True,
-                timeout=2,
+                timeout=_CMD_TIMEOUT,
             )
             if result.returncode == 0 and result.stdout.strip():
                 title = result.stdout.strip()
-        except Exception:
-            pass
+        except (subprocess.TimeoutExpired, OSError) as exc:
+            logger.debug("osascript failed for app %s: %s", app_name, exc)
         return (title, app_name)
-    except ImportError:
-        logger.warning("AppKit not available; window tracking disabled on macOS")
+    except Exception:
+        logger.debug("macOS active-window detection failed", exc_info=True)
         return ("", "")
 
 
@@ -82,15 +97,21 @@ def _get_active_window_linux() -> tuple[str, str]:
     try:
         wid = subprocess.run(
             ["xdotool", "getactivewindow"],
-            capture_output=True, text=True, timeout=2,
+            capture_output=True,
+            text=True,
+            timeout=_CMD_TIMEOUT,
         )
         if wid.returncode != 0:
             return ("", "")
         window_id = wid.stdout.strip()
+        if not window_id:
+            return ("", "")
 
         name_result = subprocess.run(
             ["xdotool", "getactivewindow", "getwindowname"],
-            capture_output=True, text=True, timeout=2,
+            capture_output=True,
+            text=True,
+            timeout=_CMD_TIMEOUT,
         )
         if name_result.returncode == 0:
             title = name_result.stdout.strip()
@@ -98,18 +119,25 @@ def _get_active_window_linux() -> tuple[str, str]:
         # Get WM_CLASS for app name
         prop_result = subprocess.run(
             ["xprop", "-id", window_id, "WM_CLASS"],
-            capture_output=True, text=True, timeout=2,
+            capture_output=True,
+            text=True,
+            timeout=_CMD_TIMEOUT,
         )
-        if prop_result.returncode == 0:
-            parts = prop_result.stdout.strip()
-            if '"' in parts:
-                # WM_CLASS returns: WM_CLASS(STRING) = "instance", "class"
-                classes = [s.strip().strip('"') for s in parts.split("=", 1)[1].split(",")]
-                app_name = classes[-1] if classes else ""
+        if prop_result.returncode == 0 and "=" in prop_result.stdout:
+            raw = prop_result.stdout.strip()
+            # WM_CLASS(STRING) = "instance", "class"
+            after_eq = raw.split("=", 1)[1]
+            classes = [s.strip().strip('"') for s in after_eq.split(",")]
+            if classes:
+                app_name = classes[-1]
     except FileNotFoundError:
-        logger.warning("xdotool not found; install it for window tracking on Linux")
-    except Exception as e:
-        logger.debug("Linux window detection error: %s", e)
+        logger.warning(
+            "xdotool not found; install xdotool for window tracking on Linux"
+        )
+    except subprocess.TimeoutExpired:
+        logger.debug("xdotool timed out")
+    except Exception:
+        logger.debug("Linux active-window detection failed", exc_info=True)
     return (title, app_name)
 
 
@@ -117,7 +145,7 @@ def get_active_window() -> tuple[str, str]:
     """Return (window_title, app_name) for the currently focused window.
 
     Cross-platform: works on Windows, macOS, and Linux.
-    Returns empty strings if detection fails.
+    Returns ``("", "")`` if detection fails for any reason.
     """
     if sys.platform == "win32":
         return _get_active_window_windows()
@@ -125,13 +153,3 @@ def get_active_window() -> tuple[str, str]:
         return _get_active_window_macos()
     else:
         return _get_active_window_linux()
-
-
-def get_cursor_position() -> tuple[int, int]:
-    """Return current cursor (x, y) position. Cross-platform."""
-    try:
-        from PyQt6.QtGui import QCursor
-        pos = QCursor.pos()
-        return (pos.x(), pos.y())
-    except Exception:
-        return (100, 100)

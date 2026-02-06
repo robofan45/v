@@ -1,22 +1,13 @@
 """Tests for the database layer."""
 
-import os
-import tempfile
-import time
-
 import pytest
 
-from resumeflow.database import SwitchLogger, get_connection, init_db
+from resumeflow.database import SwitchLogger
 
 
 @pytest.fixture
-def db_path(tmp_path):
-    return str(tmp_path / "test.db")
-
-
-@pytest.fixture
-def db(db_path):
-    logger = SwitchLogger(db_path)
+def db(tmp_path):
+    logger = SwitchLogger(str(tmp_path / "test.db"))
     yield logger
     logger.close()
 
@@ -86,3 +77,57 @@ class TestSwitchLogger:
         assert db.get_setting("theme") == "light"
         db.set_setting("theme", "dark")
         assert db.get_setting("theme") == "dark"
+
+
+class TestContextManager:
+    def test_with_statement(self, tmp_path):
+        path = str(tmp_path / "ctx.db")
+        with SwitchLogger(path) as db:
+            db.log_switch("A", "B", 1.0)
+            assert db.switches_today() == 1
+        # Connection closed — new one should still see data
+        with SwitchLogger(path) as db2:
+            assert db2.switches_today() == 1
+
+    def test_close_is_safe_to_call_twice(self, db):
+        db.close()
+        db.close()  # Should not raise
+
+
+class TestDatabaseErrorHandling:
+    """Verify that methods return safe defaults when the DB is broken."""
+
+    def test_log_switch_returns_none_on_error(self, tmp_path):
+        db = SwitchLogger(str(tmp_path / "err.db"))
+        db._conn.close()  # Sabotage connection
+        assert db.log_switch("A", "B", 1.0) is None
+
+    def test_start_session_returns_none_on_error(self, tmp_path):
+        db = SwitchLogger(str(tmp_path / "err.db"))
+        db._conn.close()
+        assert db.start_session("A") is None
+
+    def test_switches_today_returns_zero_on_error(self, tmp_path):
+        db = SwitchLogger(str(tmp_path / "err.db"))
+        db._conn.close()
+        assert db.switches_today() == 0
+
+    def test_switches_in_last_hour_returns_zero_on_error(self, tmp_path):
+        db = SwitchLogger(str(tmp_path / "err.db"))
+        db._conn.close()
+        assert db.switches_in_last_hour() == 0
+
+    def test_weekly_report_returns_empty_on_error(self, tmp_path):
+        db = SwitchLogger(str(tmp_path / "err.db"))
+        db._conn.close()
+        assert db.weekly_report() == []
+
+    def test_get_setting_returns_default_on_error(self, tmp_path):
+        db = SwitchLogger(str(tmp_path / "err.db"))
+        db._conn.close()
+        assert db.get_setting("key", "fallback") == "fallback"
+
+    def test_get_last_session_returns_none_on_error(self, tmp_path):
+        db = SwitchLogger(str(tmp_path / "err.db"))
+        db._conn.close()
+        assert db.get_last_session_for_window("A") is None

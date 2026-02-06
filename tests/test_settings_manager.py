@@ -74,3 +74,26 @@ class TestSettingsManager:
         mgr = SettingsManager(db)
         mgr.load()
         assert mgr.is_quiet_hours() is False
+
+    def test_quiet_hours_invalid_format(self, db):
+        mgr = SettingsManager(db)
+        mgr.save(AppSettings(
+            quiet_hours_start="not-a-time",
+            quiet_hours_end="also-bad",
+        ))
+        assert mgr.is_quiet_hours() is False
+
+    def test_load_ignores_unknown_fields(self, db):
+        """Settings saved with extra keys from a newer version load fine."""
+        data = {"away_threshold": 60, "future_field": True}
+        db.set_setting("app_settings", json.dumps(data))
+        mgr = SettingsManager(db)
+        s = mgr.load()
+        assert s.away_threshold == 60
+        assert not hasattr(s, "future_field")
+
+    def test_load_corrupt_json_falls_back(self, db):
+        db.set_setting("app_settings", "NOT-JSON{{{{")
+        mgr = SettingsManager(db)
+        s = mgr.load()
+        assert s == AppSettings()

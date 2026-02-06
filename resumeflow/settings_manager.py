@@ -1,11 +1,16 @@
 """Settings management with persistence via SQLite."""
 
 import json
-from dataclasses import dataclass, asdict
+import logging
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import Optional
 
 from .database import SwitchLogger
+
+logger = logging.getLogger(__name__)
+
+SETTINGS_KEY = "app_settings"
 
 
 @dataclass
@@ -19,11 +24,10 @@ class AppSettings:
     popup_duration: int = 0           # auto-dismiss seconds (0 = manual)
 
 
-SETTINGS_KEY = "app_settings"
-
-
 class SettingsManager:
-    def __init__(self, db: SwitchLogger):
+    """Read / write application settings backed by the SQLite store."""
+
+    def __init__(self, db: SwitchLogger) -> None:
         self._db = db
         self._settings: Optional[AppSettings] = None
 
@@ -32,8 +36,12 @@ class SettingsManager:
         if raw:
             try:
                 data = json.loads(raw)
-                self._settings = AppSettings(**data)
+                self._settings = AppSettings(**{
+                    k: v for k, v in data.items()
+                    if k in AppSettings.__dataclass_fields__
+                })
             except (json.JSONDecodeError, TypeError):
+                logger.warning("Corrupt settings in DB; using defaults")
                 self._settings = AppSettings()
         else:
             self._settings = AppSettings()
@@ -42,6 +50,7 @@ class SettingsManager:
     def save(self, settings: AppSettings) -> None:
         self._settings = settings
         self._db.set_setting(SETTINGS_KEY, json.dumps(asdict(settings)))
+        logger.debug("Settings saved")
 
     @property
     def current(self) -> AppSettings:
