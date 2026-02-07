@@ -1,70 +1,164 @@
 # ResumeFlow
 
-A lightweight desktop app that tracks window focus changes and helps you resume work after context switches. When you return to a window after being away, ResumeFlow shows a small popup with what you were last doing and lets you jot down your next micro-task before diving back in.
+**A lightweight desktop app that helps you stay focused by tracking context switches and helping you resume work faster.**
 
-Everything runs locally. No cloud, no telemetry, no accounts.
+When you return to a window after being away, ResumeFlow shows a small popup reminding you what you were last doing and lets you jot down a quick micro-task before diving back in.
+
+Everything runs locally. No cloud, no telemetry, no accounts. Your data never leaves your machine.
+
+---
 
 ## Features
 
-- **Window monitoring** -- Detects active window changes on Windows, macOS, and Linux using native platform APIs
-- **Resume popup** -- Non-intrusive floating widget appears near your cursor when you return to a window after the configured away threshold (default 30s). Shows how long you were gone and what you were working on
-- **Micro-task capture** -- One-line text field in the popup to write your next action before dismissing, stored as context for the next time you return
-- **Context Switch Score** -- System tray icon displays real-time switches per hour. Daily score (0-100) penalizes frequent switching
-- **Weekly reports** -- View a table of daily switch counts, average away times, and peak away times from the last 7 days
-- **SQLite logging** -- All switches logged to a local database at `~/.resumeflow/resumeflow.db`
-- **Quiet hours** -- Suppress popups during configurable time windows (supports midnight wrapping)
-- **Configurable** -- Away threshold (30s-5min), popup position (cursor/top-right/bottom-right), opacity, auto-dismiss timer, poll interval
+- **Window Monitoring** -- Detects active window changes on Windows, macOS, and Linux
+- **Resume Popup** -- Non-intrusive floating widget with fade-in animation appears when you return to a window after being away
+- **Micro-task Capture** -- One-line text field to write your next action, saved as context for next time
+- **Focus Score** -- Real-time 0-100 score displayed in system tray (green/yellow/red colour coding)
+- **Weekly Reports** -- Visual dashboard with stat cards, progress bar, and colour-coded daily breakdown table
+- **SQLite Logging** -- All switches logged locally at `~/.resumeflow/resumeflow.db`
+- **Quiet Hours** -- Suppress popups during configurable time windows (supports midnight wrapping)
+- **Dark Theme** -- Polished Catppuccin Mocha dark theme across all UI components
+- **Configurable** -- Away threshold, popup position, opacity, auto-dismiss, poll interval
 
-## Requirements
+---
 
-- Python 3.11+
-- PyQt6
-- psutil
+## Quick Start
 
-Platform-specific (installed automatically):
-- **Windows**: pygetwindow
-- **macOS**: pyobjc-framework-Cocoa
-- **Linux**: xdotool and xprop (install via your package manager)
+### Option 1: One-Command Install (Recommended)
 
-## Installation
+**macOS / Linux:**
 
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/robofan45/v.git
+cd v
+chmod +x install.sh
+./install.sh
 ```
 
-Or install as a package:
+Then run:
 
 ```bash
-pip install .
+.venv/bin/resumeflow
 ```
 
-## Usage
+**Windows:**
+
+```powershell
+git clone https://github.com/robofan45/v.git
+cd v
+install.bat
+```
+
+Then run:
+
+```powershell
+.venv\Scripts\resumeflow.exe
+```
+
+### Option 2: Make (macOS / Linux)
 
 ```bash
-# Run as a module
-python -m resumeflow
+git clone https://github.com/robofan45/v.git
+cd v
+make run
+```
 
-# Or if installed as a package
+That's it. `make run` creates a virtual environment, installs everything, and starts the app.
+
+Other make targets:
+
+| Command      | What it does                          |
+|-------------|---------------------------------------|
+| `make install` | Create venv and install dependencies |
+| `make run`     | Install + start ResumeFlow           |
+| `make test`    | Run the full test suite              |
+| `make clean`   | Remove venv and build artifacts      |
+
+### Option 3: Manual Install with pip
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/robofan45/v.git
+cd v
+
+# 2. Create a virtual environment
+python3 -m venv .venv
+
+# 3. Activate it
+source .venv/bin/activate        # macOS / Linux
+# .venv\Scripts\activate.bat     # Windows
+
+# 4. Install ResumeFlow
+pip install -e .
+
+# 5. Run it
 resumeflow
 ```
 
-ResumeFlow starts minimized to the system tray. Right-click the tray icon to access:
+### Option 4: Run Without Installing
 
-- **Weekly Report** -- View your context switch statistics
-- **Settings** -- Adjust thresholds, popup behavior, and quiet hours
-- **Quit** -- Clean shutdown
+If you just want to try it quickly:
 
-The tray icon displays your current switches-per-hour count. Hover for a summary of today's score and totals.
+```bash
+pip install PyQt6 psutil
+python run.py
+```
 
-### How it works
+---
 
-1. ResumeFlow polls the active window once per second (configurable)
-2. When you switch windows, the previous window is recorded with a timestamp
-3. When you return to a previously visited window after the away threshold:
-   - A popup appears showing how long you were gone and your last context
-   - Type your next micro-task and hit Enter or click **Go**
-   - The micro-task is saved as context for next time
-4. Every switch is logged to SQLite for the weekly report
+## Requirements
+
+- **Python 3.11** or newer
+- **PyQt6** (installed automatically)
+- **psutil** (installed automatically)
+
+### Platform-specific dependencies
+
+| Platform | Extra dependency | How to install |
+|----------|-----------------|----------------|
+| **Windows** | pygetwindow | Installed automatically by pip |
+| **macOS** | pyobjc-framework-Cocoa | Installed automatically by pip |
+| **Linux** | xdotool | `sudo apt install xdotool` (Debian/Ubuntu) |
+|           |         | `sudo dnf install xdotool` (Fedora) |
+|           |         | `sudo pacman -S xdotool` (Arch) |
+
+---
+
+## How to Use
+
+ResumeFlow starts minimised to the **system tray**. Look for the circular icon with a number in it.
+
+### System Tray
+
+- The **number** on the icon shows your switches per hour
+- The **ring colour** shows your focus score:
+  - Green = great focus (score >= 70)
+  - Yellow = moderate switching (score 40-69)
+  - Red = high switching (score < 40)
+- **Right-click** the tray icon to access the menu:
+  - **Weekly Report** -- View your stats dashboard
+  - **Settings** -- Configure thresholds and popup behaviour
+  - **Quit** -- Clean shutdown
+
+### Resume Popup
+
+When you switch back to a window after being away longer than the threshold (default 30 seconds):
+
+1. A floating popup fades in near your cursor
+2. It shows how long you were away and what you were last working on
+3. Type your next micro-task and press **Enter** or click **Go**
+4. The popup closes and your task is saved as context for next time
+
+### Weekly Report
+
+The report dialog shows:
+
+- Three stat cards: **Focus Score**, **Switches Today**, **Last Hour**
+- A colour-coded progress bar for your score
+- A table with daily breakdown: date, switch count, average away time, max away time
+- Switch counts are colour-coded (green < 15, yellow 15-30, red > 30)
+
+---
 
 ## Settings
 
@@ -77,41 +171,35 @@ The tray icon displays your current switches-per-hour count. Hover for a summary
 | Auto-dismiss | 0 (manual) | 0-60s | Auto-hide popup after N seconds |
 | Quiet hours | disabled | HH:MM - HH:MM | Suppress popups during this window |
 
-Settings are persisted in the SQLite database and survive restarts.
+Settings are saved to the SQLite database and persist across restarts.
 
-## Architecture
+---
+
+## Project Structure
 
 ```
 resumeflow/
     __init__.py          # Package metadata
     __main__.py          # python -m resumeflow entry point
     app.py               # Main controller, signal handlers, shutdown
+    theme.py             # Catppuccin Mocha theme and global stylesheet
     context_tracker.py   # Switch detection, away timing, LRU history
     database.py          # SQLite layer (WAL mode, error-safe)
     window_monitor.py    # Cross-platform active window detection
-    popup.py             # Floating PyQt6 resume widget
-    tray.py              # System tray icon with live switch count
+    popup.py             # Floating resume popup with drop shadow + animation
+    tray.py              # System tray icon with score-coloured ring
     settings_manager.py  # Persistent settings via SQLite
-    settings_dialog.py   # Settings UI with validation
-    report_dialog.py     # Weekly report table
-tests/
-    test_context_tracker.py
-    test_database.py
-    test_popup.py
-    test_report_dialog.py
-    test_settings_dialog.py
-    test_settings_manager.py
-    test_tray.py
-    test_window_monitor.py
+    settings_dialog.py   # Settings UI with themed form controls
+    report_dialog.py     # Weekly report with stat cards + styled table
+tests/                   # 78 tests across all modules
+run.py                   # Quick launcher (no install needed)
+install.sh               # One-command installer (macOS/Linux)
+install.bat              # One-command installer (Windows)
+Makefile                 # make install / run / test / clean
+pyproject.toml           # Package configuration
 ```
 
-### Platform support
-
-| Platform | Window detection | Dependencies |
-|----------|-----------------|--------------|
-| Windows | pygetwindow + ctypes + psutil | `pygetwindow`, `psutil` |
-| macOS | AppKit + osascript | `pyobjc-framework-Cocoa` |
-| Linux | xdotool + xprop | `xdotool` (system package) |
+---
 
 ## Development
 
@@ -120,21 +208,43 @@ tests/
 pip install -e ".[dev]"
 
 # Run tests
-pytest
+pytest -v
 
-# Run tests with Qt offscreen (headless CI)
+# Run tests headless (CI / no display)
 QT_QPA_PLATFORM=offscreen pytest -v
 ```
 
-78 tests covering database operations, context tracking logic, window monitor dispatch, popup widget behavior, tray icon rendering, settings persistence, and dialog construction.
+78 tests covering: database CRUD, context tracking logic, window monitor dispatch, popup widget behaviour, tray icon rendering, settings persistence, dialog construction, and report generation.
 
-## Design decisions
+---
 
-- **Single-threaded** -- All work happens on the Qt main thread via `QTimer`. No locks needed, no race conditions.
-- **Bounded memory** -- Window history is an LRU `OrderedDict` capped at 500 entries. Old entries are evicted automatically.
-- **Error-safe DB** -- Every database method catches `sqlite3.Error` and returns a safe default. The app keeps running even if the database is locked or corrupted.
-- **Graceful shutdown** -- SIGINT and SIGTERM are handled. The poll timer, tracker, tray, and database are all cleaned up before the process exits.
+## Troubleshooting
+
+**"No module named PyQt6"**
+Make sure you're running inside the virtual environment. Run `source .venv/bin/activate` (macOS/Linux) or `.venv\Scripts\activate.bat` (Windows) first.
+
+**"Could not load the Qt platform plugin"**
+On Linux, you may need: `sudo apt install libegl1 libgl1`
+
+**"xdotool: command not found" (Linux)**
+Install xdotool: `sudo apt install xdotool`
+
+**The tray icon doesn't appear**
+Some Linux desktop environments need a system tray extension (e.g., GNOME needs the AppIndicator extension).
+
+**"Python 3.11+ required"**
+Check your version with `python3 --version`. If you need to upgrade, visit [python.org](https://www.python.org/downloads/).
+
+---
+
+## Design Decisions
+
+- **Single-threaded** -- All work on the Qt main thread via `QTimer`. No locks, no race conditions.
+- **Bounded memory** -- Window history is an LRU `OrderedDict` capped at 500 entries.
+- **Error-safe DB** -- Every database method catches `sqlite3.Error` and returns safe defaults.
+- **Graceful shutdown** -- SIGINT and SIGTERM handled; all resources cleaned up on exit.
 - **No network** -- Zero outbound connections. Data stays on disk at `~/.resumeflow/`.
+- **Catppuccin Mocha** -- Consistent dark theme across all UI components.
 
 ## License
 

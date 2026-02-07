@@ -25,7 +25,7 @@ def popup(qapp):
 class TestResumePopup:
     def test_initial_state(self, popup):
         assert not popup.isVisible()
-        assert popup.width() == 380
+        assert popup.width() == 420
 
     def test_show_resume_populates_labels(self, popup):
         info = ResumeInfo(

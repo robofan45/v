@@ -1,11 +1,12 @@
-"""Non-intrusive floating resume popup widget."""
+"""Non-intrusive floating resume popup widget with polished UI."""
 
 import logging
 
-from PyQt6.QtCore import QPoint, Qt, pyqtSignal
-from PyQt6.QtGui import QCursor, QFont
+from PyQt6.QtCore import QPoint, QPropertyAnimation, QEasingCurve, Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QCursor, QFont
 from PyQt6.QtWidgets import (
     QApplication,
+    QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -15,6 +16,7 @@ from PyQt6.QtWidgets import (
 )
 
 from .context_tracker import ResumeInfo
+from . import theme
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +47,8 @@ class ResumePopup(QWidget):
             | Qt.WindowType.WindowStaysOnTopHint
             | Qt.WindowType.Tool
         )
-        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
-        self.setFixedWidth(380)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        self.setFixedWidth(420)
 
         self._setup_ui()
         self._setup_style()
@@ -54,117 +56,172 @@ class ResumePopup(QWidget):
     # -- UI setup ---------------------------------------------------------
 
     def _setup_ui(self) -> None:
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 12, 16, 12)
-        layout.setSpacing(8)
+        # Outer wrapper so the drop shadow has room to render
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(12, 12, 12, 12)
 
-        # Header
+        self._card = QWidget()
+        self._card.setObjectName("popupCard")
+        card_layout = QVBoxLayout(self._card)
+        card_layout.setContentsMargins(20, 16, 20, 16)
+        card_layout.setSpacing(12)
+
+        # Drop shadow
+        shadow = QGraphicsDropShadowEffect(self._card)
+        shadow.setBlurRadius(30)
+        shadow.setOffset(0, 4)
+        shadow.setColor(QColor(theme.CRUST))
+        self._card.setGraphicsEffect(shadow)
+
+        # ── Header row ──
         header = QHBoxLayout()
+        header.setSpacing(10)
+
         self._icon_label = QLabel("\u23f0")
-        self._icon_label.setFont(QFont("Segoe UI Emoji", 14))
+        self._icon_label.setFont(QFont("Segoe UI Emoji", 18))
+        self._icon_label.setFixedWidth(32)
         header.addWidget(self._icon_label)
 
+        header_text = QVBoxLayout()
+        header_text.setSpacing(0)
         self._title_label = QLabel("Welcome back!")
-        self._title_label.setFont(QFont("Segoe UI", 11, QFont.Weight.Bold))
-        header.addWidget(self._title_label, 1)
+        self._title_label.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        self._title_label.setObjectName("popupTitle")
+        header_text.addWidget(self._title_label)
+
+        self._away_label = QLabel()
+        self._away_label.setFont(QFont("Segoe UI", 10))
+        self._away_label.setObjectName("awayLabel")
+        header_text.addWidget(self._away_label)
+
+        header.addLayout(header_text, 1)
 
         close_btn = QPushButton("\u2715")
-        close_btn.setFixedSize(24, 24)
+        close_btn.setFixedSize(28, 28)
         close_btn.setObjectName("closeBtn")
+        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         close_btn.clicked.connect(self._on_dismiss)
         header.addWidget(close_btn)
 
-        layout.addLayout(header)
+        card_layout.addLayout(header)
 
-        # Away info
-        self._away_label = QLabel()
-        self._away_label.setWordWrap(True)
-        self._away_label.setFont(QFont("Segoe UI", 9))
-        layout.addWidget(self._away_label)
+        # ── Divider ──
+        divider = QWidget()
+        divider.setFixedHeight(1)
+        divider.setObjectName("divider")
+        card_layout.addWidget(divider)
 
-        # Context info
+        # ── Context card ──
         self._context_label = QLabel()
         self._context_label.setWordWrap(True)
-        self._context_label.setFont(QFont("Segoe UI", 9))
+        self._context_label.setFont(QFont("Segoe UI", 10))
         self._context_label.setObjectName("contextLabel")
-        layout.addWidget(self._context_label)
+        card_layout.addWidget(self._context_label)
 
-        # Micro-task input
-        task_label = QLabel("Ready to Resume \u2014 what's your next micro-task?")
-        task_label.setFont(QFont("Segoe UI", 9, QFont.Weight.DemiBold))
-        layout.addWidget(task_label)
+        # ── Micro-task section ──
+        task_label = QLabel("\u270f  What's your next micro-task?")
+        task_label.setFont(QFont("Segoe UI", 10, QFont.Weight.DemiBold))
+        task_label.setObjectName("taskPromptLabel")
+        card_layout.addWidget(task_label)
 
         input_row = QHBoxLayout()
+        input_row.setSpacing(8)
         self._task_input = QLineEdit()
         self._task_input.setPlaceholderText("e.g. Fix the login bug on line 42...")
+        self._task_input.setMinimumHeight(36)
         self._task_input.returnPressed.connect(self._on_submit)
         input_row.addWidget(self._task_input, 1)
 
-        go_btn = QPushButton("Go \u2192")
+        go_btn = QPushButton("Go  \u2192")
         go_btn.setObjectName("goBtn")
+        go_btn.setMinimumHeight(36)
+        go_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         go_btn.clicked.connect(self._on_submit)
         input_row.addWidget(go_btn)
 
-        layout.addLayout(input_row)
+        card_layout.addLayout(input_row)
+
+        outer.addWidget(self._card)
 
     def _setup_style(self) -> None:
-        self.setStyleSheet("""
-            ResumePopup {
-                background-color: #1e1e2e;
-                border: 1px solid #45475a;
-                border-radius: 12px;
-            }
-            QLabel {
-                color: #cdd6f4;
+        self.setStyleSheet(f"""
+            QWidget#popupCard {{
+                background-color: {theme.BASE};
+                border: 1px solid {theme.SURFACE1};
+                border-radius: 14px;
+            }}
+            QLabel {{
+                color: {theme.TEXT};
                 background: transparent;
-            }
-            QLabel#contextLabel {
-                color: #a6e3a1;
-                padding: 4px 8px;
-                background: #1a1a2e;
-                border-radius: 6px;
-            }
-            QLineEdit {
-                background: #313244;
-                color: #cdd6f4;
-                border: 1px solid #45475a;
-                border-radius: 6px;
-                padding: 6px 10px;
+            }}
+            QLabel#popupTitle {{
+                color: {theme.BLUE};
+                font-size: 14px;
+            }}
+            QLabel#awayLabel {{
+                color: {theme.SUBTEXT0};
+                font-size: 11px;
+            }}
+            QLabel#contextLabel {{
+                color: {theme.GREEN};
+                padding: 10px 14px;
+                background: {theme.MANTLE};
+                border-radius: 8px;
+                border-left: 3px solid {theme.GREEN};
+                font-size: 12px;
+            }}
+            QLabel#taskPromptLabel {{
+                color: {theme.SUBTEXT1};
+            }}
+            QWidget#divider {{
+                background-color: {theme.SURFACE1};
+            }}
+            QLineEdit {{
+                background: {theme.SURFACE0};
+                color: {theme.TEXT};
+                border: 1px solid {theme.SURFACE1};
+                border-radius: 8px;
+                padding: 8px 12px;
                 font-size: 13px;
-            }
-            QLineEdit:focus {
-                border-color: #89b4fa;
-            }
-            QPushButton#goBtn {
-                background: #89b4fa;
-                color: #1e1e2e;
+            }}
+            QLineEdit:focus {{
+                border-color: {theme.BLUE};
+            }}
+            QPushButton#goBtn {{
+                background: {theme.BLUE};
+                color: {theme.CRUST};
                 border: none;
-                border-radius: 6px;
-                padding: 6px 16px;
+                border-radius: 8px;
+                padding: 8px 22px;
                 font-weight: bold;
                 font-size: 13px;
-            }
-            QPushButton#goBtn:hover {
-                background: #74c7ec;
-            }
-            QPushButton#closeBtn {
+            }}
+            QPushButton#goBtn:hover {{
+                background: {theme.LAVENDER};
+            }}
+            QPushButton#goBtn:pressed {{
+                background: {theme.MAUVE};
+            }}
+            QPushButton#closeBtn {{
                 background: transparent;
-                color: #6c7086;
+                color: {theme.OVERLAY0};
                 border: none;
+                border-radius: 14px;
                 font-size: 14px;
-            }
-            QPushButton#closeBtn:hover {
-                color: #f38ba8;
-            }
+            }}
+            QPushButton#closeBtn:hover {{
+                color: {theme.RED};
+                background: {theme.SURFACE0};
+            }}
         """)
 
     # -- public API -------------------------------------------------------
 
     def show_resume(self, info: ResumeInfo, position: str = "cursor") -> None:
         """Populate and display the popup for a resume event."""
-        self._away_label.setText(f"You were away for {info.away_display}.")
+        self._away_label.setText(f"You were away for {info.away_display}")
         context_text = info.last_context or info.window_title
-        self._context_label.setText(f"You were working on: {context_text}")
+        self._context_label.setText(f"\U0001f4cc  Last working on: {context_text}")
         self._task_input.clear()
         self._task_input.setFocus()
 
@@ -173,7 +230,21 @@ class ResumePopup(QWidget):
         self.show()
         self.raise_()
         self.activateWindow()
+
+        # Fade-in animation
+        self._fade_in()
         logger.debug("Resume popup shown (away %s)", info.away_display)
+
+    # -- animation --------------------------------------------------------
+
+    def _fade_in(self) -> None:
+        self.setWindowOpacity(0.0)
+        self._anim = QPropertyAnimation(self, b"windowOpacity")
+        self._anim.setDuration(200)
+        self._anim.setStartValue(0.0)
+        self._anim.setEndValue(0.95)
+        self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._anim.start()
 
     # -- positioning ------------------------------------------------------
 

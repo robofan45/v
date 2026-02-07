@@ -17,6 +17,7 @@ from .popup import ResumePopup
 from .report_dialog import ReportDialog
 from .settings_dialog import SettingsDialog
 from .settings_manager import SettingsManager
+from .theme import APP_STYLESHEET
 from .tray import TrayManager
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,7 @@ class ResumeFlowApp:
         self._qt_app = QApplication(sys.argv)
         self._qt_app.setApplicationName("ResumeFlow")
         self._qt_app.setQuitOnLastWindowClosed(False)
+        self._qt_app.setStyleSheet(APP_STYLESHEET)
 
         # Core components
         self._db = SwitchLogger()

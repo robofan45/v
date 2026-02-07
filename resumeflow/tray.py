@@ -1,35 +1,53 @@
-"""System tray icon with real-time context switch count."""
+"""System tray icon with real-time context switch count and score-based colors."""
 
 import logging
 from typing import Callable, Optional
 
 from PyQt6.QtCore import QSize, QTimer, Qt
-from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QPainter, QPixmap
+from PyQt6.QtGui import QAction, QColor, QFont, QIcon, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import QMenu, QSystemTrayIcon
 
 from .database import SwitchLogger
+from . import theme
 
 logger = logging.getLogger(__name__)
 
 _ICON_SIZE = 64
 
 
-def _create_tray_icon(count: int) -> QIcon:
-    """Generate a 64x64 icon with the switch count rendered on it."""
+def _score_color(score: int) -> str:
+    """Return a Catppuccin colour based on the focus score."""
+    if score >= 70:
+        return theme.GREEN
+    if score >= 40:
+        return theme.YELLOW
+    return theme.RED
+
+
+def _create_tray_icon(count: int, score: int = 100) -> QIcon:
+    """Generate a 64x64 icon with switch count and score-coloured ring."""
     pixmap = QPixmap(QSize(_ICON_SIZE, _ICON_SIZE))
     pixmap.fill(QColor(0, 0, 0, 0))
 
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-    # Background circle
-    painter.setBrush(QColor("#1e1e2e"))
-    painter.setPen(QColor("#89b4fa"))
-    painter.drawEllipse(2, 2, _ICON_SIZE - 4, _ICON_SIZE - 4)
+    ring_color = QColor(_score_color(score))
+
+    # Outer ring (score-coloured)
+    pen = QPen(ring_color, 3)
+    painter.setPen(pen)
+    painter.setBrush(QColor(theme.BASE))
+    painter.drawEllipse(3, 3, _ICON_SIZE - 6, _ICON_SIZE - 6)
+
+    # Inner fill
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(QColor(theme.MANTLE))
+    painter.drawEllipse(6, 6, _ICON_SIZE - 12, _ICON_SIZE - 12)
 
     # Count text
-    painter.setPen(QColor("#cdd6f4"))
-    font = QFont("Segoe UI", 22, QFont.Weight.Bold)
+    painter.setPen(QColor(theme.TEXT))
+    font = QFont("Segoe UI", 20, QFont.Weight.Bold)
     painter.setFont(font)
     text = str(count) if count < 100 else "99+"
     painter.drawText(pixmap.rect(), int(Qt.AlignmentFlag.AlignCenter), text)
@@ -40,6 +58,11 @@ def _create_tray_icon(count: int) -> QIcon:
 
 class TrayManager:
     """Manages the system tray icon, menu, and periodic count updates.
+
+    The tray icon ring changes colour based on the focus score:
+    - Green (>=70): good focus
+    - Yellow (>=40): moderate switching
+    - Red (<40): high context switching
 
     Call :meth:`cleanup` to stop the internal refresh timer and hide the
     tray icon before the application exits.
@@ -59,6 +82,8 @@ class TrayManager:
         self._tray.setToolTip("ResumeFlow \u2014 Context Switch Tracker")
 
         self._menu = QMenu()
+
+        # ── Score header ──
         self._score_action = QAction("Score: --/100")
         self._score_action.setEnabled(False)
         self._menu.addAction(self._score_action)
@@ -116,7 +141,7 @@ class TrayManager:
             total = score_data["total_today"]
             score = score_data["score"]
 
-            self._tray.setIcon(_create_tray_icon(per_hour))
+            self._tray.setIcon(_create_tray_icon(per_hour, score))
             self._tray.setToolTip(
                 f"ResumeFlow \u2014 Score: {score}/100 | "
                 f"{per_hour}/hr | {total} today"
