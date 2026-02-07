@@ -22,40 +22,70 @@ Everything runs locally. No cloud, no telemetry, no accounts. Your data never le
 
 ---
 
-## Quick Start
+## Install & Run
 
-### Option 1: One-Command Install (Recommended)
+### Direct Install (one command -- recommended)
 
-**macOS / Linux:**
+**macOS / Linux** -- paste this into your terminal:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/robofan45/v/main/get-resumeflow.sh | bash
+```
+
+Or with `wget`:
+
+```bash
+wget -qO- https://raw.githubusercontent.com/robofan45/v/main/get-resumeflow.sh | bash
+```
+
+This will:
+1. Check that Python 3.11+ and git are installed
+2. Clone the repo to `~/ResumeFlow`
+3. Create a virtual environment and install all dependencies
+4. Create a `resumeflow` launcher in `~/.local/bin/`
+
+After install, just run:
+
+```bash
+resumeflow
+```
+
+> If `resumeflow` is not found, restart your terminal or run `~/ResumeFlow/.venv/bin/resumeflow` directly.
+
+---
+
+**Windows** -- open a Command Prompt and run:
+
+```cmd
+git clone https://github.com/robofan45/v.git %USERPROFILE%\ResumeFlow
+cd %USERPROFILE%\ResumeFlow
+install.bat
+```
+
+Then run:
+
+```cmd
+%USERPROFILE%\ResumeFlow\.venv\Scripts\resumeflow.exe
+```
+
+---
+
+### Alternative Install Methods
+
+<details>
+<summary><strong>Option B: Clone + install.sh</strong></summary>
 
 ```bash
 git clone https://github.com/robofan45/v.git
 cd v
 chmod +x install.sh
 ./install.sh
-```
-
-Then run:
-
-```bash
 .venv/bin/resumeflow
 ```
+</details>
 
-**Windows:**
-
-```powershell
-git clone https://github.com/robofan45/v.git
-cd v
-install.bat
-```
-
-Then run:
-
-```powershell
-.venv\Scripts\resumeflow.exe
-```
-
-### Option 2: Make (macOS / Linux)
+<details>
+<summary><strong>Option C: Clone + Make</strong></summary>
 
 ```bash
 git clone https://github.com/robofan45/v.git
@@ -63,46 +93,38 @@ cd v
 make run
 ```
 
-That's it. `make run` creates a virtual environment, installs everything, and starts the app.
-
-Other make targets:
-
 | Command      | What it does                          |
 |-------------|---------------------------------------|
 | `make install` | Create venv and install dependencies |
 | `make run`     | Install + start ResumeFlow           |
 | `make test`    | Run the full test suite              |
 | `make clean`   | Remove venv and build artifacts      |
+</details>
 
-### Option 3: Manual Install with pip
+<details>
+<summary><strong>Option D: Manual pip install</strong></summary>
 
 ```bash
-# 1. Clone the repo
 git clone https://github.com/robofan45/v.git
 cd v
-
-# 2. Create a virtual environment
 python3 -m venv .venv
-
-# 3. Activate it
 source .venv/bin/activate        # macOS / Linux
 # .venv\Scripts\activate.bat     # Windows
-
-# 4. Install ResumeFlow
 pip install -e .
-
-# 5. Run it
 resumeflow
 ```
+</details>
 
-### Option 4: Run Without Installing
-
-If you just want to try it quickly:
+<details>
+<summary><strong>Option E: Quick run (no install)</strong></summary>
 
 ```bash
+git clone https://github.com/robofan45/v.git
+cd v
 pip install PyQt6 psutil
 python run.py
 ```
+</details>
 
 ---
 
@@ -193,6 +215,7 @@ resumeflow/
     report_dialog.py     # Weekly report with stat cards + styled table
 tests/                   # 78 tests across all modules
 run.py                   # Quick launcher (no install needed)
+get-resumeflow.sh        # Direct install script (curl | bash)
 install.sh               # One-command installer (macOS/Linux)
 install.bat              # One-command installer (Windows)
 Makefile                 # make install / run / test / clean
