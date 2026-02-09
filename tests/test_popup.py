@@ -74,6 +74,49 @@ class TestResumePopup:
         popup._on_dismiss()
         assert received == [True]
 
+    def test_show_resume_applies_custom_opacity(self, popup):
+        info = ResumeInfo("Win", "App", 30, "ctx")
+        popup.show_resume(info, opacity=0.7)
+        assert popup._target_opacity == 0.7
+
+    def test_show_resume_clamps_opacity(self, popup):
+        info = ResumeInfo("Win", "App", 30, "ctx")
+        popup.show_resume(info, opacity=2.0)
+        assert popup._target_opacity == 1.0
+        popup.show_resume(info, opacity=-1.0)
+        assert popup._target_opacity == 0.1
+
+    def test_empty_submit_dismisses_instead(self, popup):
+        submitted = []
+        dismissed = []
+        popup.task_submitted.connect(submitted.append)
+        popup.dismissed.connect(lambda: dismissed.append(True))
+        popup._task_input.setText("")
+        popup._on_submit()
+        assert submitted == []
+        assert dismissed == [True]
+
+    def test_auto_dismiss_timer_created(self, popup):
+        info = ResumeInfo("Win", "App", 30, "ctx")
+        popup.show_resume(info, auto_dismiss_ms=5000)
+        assert popup._auto_dismiss_timer is not None
+        assert popup._auto_dismiss_timer.isActive()
+
+    def test_auto_dismiss_timer_cancelled_on_submit(self, popup):
+        info = ResumeInfo("Win", "App", 30, "ctx")
+        popup.show_resume(info, auto_dismiss_ms=5000)
+        popup._task_input.setText("task")
+        popup._on_submit()
+        assert popup._auto_dismiss_timer is None
+
+    def test_auto_dismiss_timer_cancelled_on_new_show(self, popup):
+        info = ResumeInfo("Win", "App", 30, "ctx")
+        popup.show_resume(info, auto_dismiss_ms=5000)
+        first_timer = popup._auto_dismiss_timer
+        popup.show_resume(info, auto_dismiss_ms=3000)
+        # Old timer replaced by new one
+        assert popup._auto_dismiss_timer is not first_timer
+
     def test_position_popup_cursor_mode(self, popup):
         popup._position_popup("cursor")
 

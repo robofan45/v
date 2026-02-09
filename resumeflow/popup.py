@@ -2,7 +2,7 @@
 
 import logging
 
-from PyQt6.QtCore import QPoint, QPropertyAnimation, QEasingCurve, Qt, pyqtSignal
+from PyQt6.QtCore import QPoint, QPropertyAnimation, QEasingCurve, QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QCursor, QFont
 from PyQt6.QtWidgets import (
     QApplication,
@@ -49,6 +49,8 @@ class ResumePopup(QWidget):
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
         self.setFixedWidth(420)
+        self._target_opacity: float = 0.95
+        self._auto_dismiss_timer: QTimer | None = None
 
         self._setup_ui()
         self._setup_style()
@@ -217,8 +219,27 @@ class ResumePopup(QWidget):
 
     # -- public API -------------------------------------------------------
 
-    def show_resume(self, info: ResumeInfo, position: str = "cursor") -> None:
-        """Populate and display the popup for a resume event."""
+    def show_resume(
+        self,
+        info: ResumeInfo,
+        position: str = "cursor",
+        opacity: float = 0.95,
+        auto_dismiss_ms: int = 0,
+    ) -> None:
+        """Populate and display the popup for a resume event.
+
+        Parameters
+        ----------
+        opacity:
+            Target window opacity after fade-in (0.0-1.0).
+        auto_dismiss_ms:
+            Auto-hide after this many milliseconds.  0 = manual dismiss.
+        """
+        # Cancel any pending auto-dismiss from a previous popup.
+        self._cancel_auto_dismiss()
+
+        self._target_opacity = max(0.1, min(opacity, 1.0))
+
         self._away_label.setText(f"You were away for {info.away_display}")
         context_text = info.last_context or info.window_title
         self._context_label.setText(f"\U0001f4cc  Last working on: {context_text}")
@@ -233,6 +254,14 @@ class ResumePopup(QWidget):
 
         # Fade-in animation
         self._fade_in()
+
+        # Schedule auto-dismiss (after fade-in completes)
+        if auto_dismiss_ms > 0:
+            self._auto_dismiss_timer = QTimer(self)
+            self._auto_dismiss_timer.setSingleShot(True)
+            self._auto_dismiss_timer.timeout.connect(self._on_dismiss)
+            self._auto_dismiss_timer.start(auto_dismiss_ms + 200)
+
         logger.debug("Resume popup shown (away %s)", info.away_display)
 
     # -- animation --------------------------------------------------------
@@ -242,7 +271,7 @@ class ResumePopup(QWidget):
         self._anim = QPropertyAnimation(self, b"windowOpacity")
         self._anim.setDuration(200)
         self._anim.setStartValue(0.0)
-        self._anim.setEndValue(0.95)
+        self._anim.setEndValue(self._target_opacity)
         self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
         self._anim.start()
 
@@ -280,13 +309,28 @@ class ResumePopup(QWidget):
 
         self.move(QPoint(x, y))
 
+    # -- auto-dismiss management ------------------------------------------
+
+    def _cancel_auto_dismiss(self) -> None:
+        """Stop and discard any pending auto-dismiss timer."""
+        if self._auto_dismiss_timer is not None:
+            self._auto_dismiss_timer.stop()
+            self._auto_dismiss_timer.deleteLater()
+            self._auto_dismiss_timer = None
+
     # -- slots ------------------------------------------------------------
 
     def _on_submit(self) -> None:
         text = self._task_input.text().strip()
+        if not text:
+            # Don't emit empty tasks — just dismiss instead
+            self._on_dismiss()
+            return
+        self._cancel_auto_dismiss()
         self.task_submitted.emit(text)
         self.hide()
 
     def _on_dismiss(self) -> None:
+        self._cancel_auto_dismiss()
         self.dismissed.emit()
         self.hide()

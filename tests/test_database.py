@@ -70,6 +70,34 @@ class TestSwitchLogger:
         assert len(report) == 1
         assert report[0]["switches"] == 2
 
+    def test_weekly_summary_empty(self, db):
+        summary = db.weekly_summary()
+        assert summary["score"] == 100
+        assert summary["total_switches"] == 0
+
+    def test_weekly_summary_with_data(self, db):
+        for i in range(5):
+            db.log_switch(f"W{i}", f"W{i+1}", float(i * 10))
+        summary = db.weekly_summary()
+        assert summary["total_switches"] == 5
+        assert summary["score"] == 95
+        # avg_away excludes away_seconds == 0 entries
+        assert summary["avg_away"] > 0
+
+    def test_weekly_summary_returns_defaults_on_error(self, tmp_path):
+        db = SwitchLogger(str(tmp_path / "err.db"))
+        db._conn.close()
+        summary = db.weekly_summary()
+        assert summary == {"score": 0, "total_switches": 0, "avg_away": 0}
+
+    def test_weekly_report_avg_excludes_zero_away(self, db):
+        db.log_switch("A", "B", 0.0)  # new window, no away time
+        db.log_switch("B", "A", 60.0)  # resume, 60s away
+        report = db.weekly_report()
+        assert len(report) == 1
+        # AVG should be 60, not 30 (excludes the 0)
+        assert report[0]["avg_away"] == pytest.approx(60.0)
+
     def test_settings_roundtrip(self, db):
         assert db.get_setting("theme") == ""
         assert db.get_setting("theme", "dark") == "dark"

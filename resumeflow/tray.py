@@ -94,22 +94,26 @@ class TrayManager:
 
         self._menu.addSeparator()
 
+        # Store as instance attrs to prevent garbage collection in PyQt6.
+        self._report_action: QAction | None = None
         if on_show_report:
-            report_action = QAction("Weekly Report...")
-            report_action.triggered.connect(on_show_report)
-            self._menu.addAction(report_action)
+            self._report_action = QAction("Weekly Report...")
+            self._report_action.triggered.connect(on_show_report)
+            self._menu.addAction(self._report_action)
 
+        self._settings_action: QAction | None = None
         if on_show_settings:
-            settings_action = QAction("Settings...")
-            settings_action.triggered.connect(on_show_settings)
-            self._menu.addAction(settings_action)
+            self._settings_action = QAction("Settings...")
+            self._settings_action.triggered.connect(on_show_settings)
+            self._menu.addAction(self._settings_action)
 
         self._menu.addSeparator()
 
+        self._quit_action: QAction | None = None
         if on_quit:
-            quit_action = QAction("Quit")
-            quit_action.triggered.connect(on_quit)
-            self._menu.addAction(quit_action)
+            self._quit_action = QAction("Quit")
+            self._quit_action.triggered.connect(on_quit)
+            self._menu.addAction(self._quit_action)
 
         self._tray.setContextMenu(self._menu)
 

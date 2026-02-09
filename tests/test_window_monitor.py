@@ -82,6 +82,23 @@ class TestLinuxWindowDetection:
         assert title == "Terminal"
         assert app == ""
 
+    @patch("resumeflow.window_monitor.subprocess.run")
+    def test_uses_captured_window_id_for_title(self, mock_run):
+        """Verify xdotool getwindowname uses the captured window_id, not getactivewindow."""
+        wid_result = MagicMock(returncode=0, stdout="99887766\n")
+        name_result = MagicMock(returncode=0, stdout="My Window\n")
+        prop_result = MagicMock(
+            returncode=0,
+            stdout='WM_CLASS(STRING) = "app", "App"\n',
+        )
+        mock_run.side_effect = [wid_result, name_result, prop_result]
+
+        _get_active_window_linux()
+
+        # Second call should be getwindowname with the captured id
+        second_call_args = mock_run.call_args_list[1][0][0]
+        assert second_call_args == ["xdotool", "getwindowname", "99887766"]
+
 
 class TestWindowsDetection:
     @patch("resumeflow.window_monitor.logger")

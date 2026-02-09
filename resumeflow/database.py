@@ -200,7 +200,7 @@ class SwitchLogger:
                 """SELECT
                      date(timestamp, 'unixepoch', 'localtime') as day,
                      COUNT(*) as switches,
-                     COALESCE(AVG(away_seconds), 0) as avg_away,
+                     COALESCE(AVG(CASE WHEN away_seconds > 0 THEN away_seconds END), 0) as avg_away,
                      COALESCE(MAX(away_seconds), 0) as max_away
                    FROM context_switches
                    WHERE timestamp > ?
@@ -212,6 +212,28 @@ class SwitchLogger:
         except sqlite3.Error:
             logger.exception("Failed to generate weekly report")
             return []
+
+    def weekly_summary(self) -> dict:
+        """Return aggregate stats for the last 7 days."""
+        try:
+            week_ago = time.time() - 7 * 86400
+            row = self._conn.execute(
+                """SELECT
+                     COALESCE(COUNT(*), 0) as total_switches,
+                     COALESCE(AVG(CASE WHEN away_seconds > 0 THEN away_seconds END), 0) as avg_away
+                   FROM context_switches
+                   WHERE timestamp > ?""",
+                (week_ago,),
+            ).fetchone()
+            total = row["total_switches"] if row else 0
+            avg_away = row["avg_away"] if row else 0
+            # Weekly score: fewer switches = higher score.
+            # 7 days * ~20 switches/day = 140 as a "bad" baseline.
+            score = max(100 - total, 0)
+            return {"score": score, "total_switches": total, "avg_away": avg_away}
+        except sqlite3.Error:
+            logger.exception("Failed to generate weekly summary")
+            return {"score": 0, "total_switches": 0, "avg_away": 0}
 
     # -- settings ---------------------------------------------------------
 

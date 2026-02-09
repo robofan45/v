@@ -53,6 +53,11 @@ def _get_active_window_windows() -> tuple[str, str]:
         return ("", "")
 
 
+def _applescript_quote(s: str) -> str:
+    """Escape a string for safe embedding in an AppleScript double-quoted literal."""
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
 def _get_active_window_macos() -> tuple[str, str]:
     """Get active window title and app name on macOS."""
     try:
@@ -62,14 +67,15 @@ def _get_active_window_macos() -> tuple[str, str]:
         return ("", "")
 
     try:
-        active_app = NSWorkspace.sharedWorkspace().activeApplication()
-        if active_app is None:
+        workspace = NSWorkspace.sharedWorkspace()
+        # Use frontmostApplication() — activeApplication() was deprecated in 10.7.
+        front = workspace.frontmostApplication()
+        if front is None:
             return ("", "")
-        app_name = active_app.get("NSApplicationName", "")
+        app_name = front.localizedName() or ""
         title = app_name
         try:
-            # Use shlex.quote to prevent command injection via app names.
-            safe_name = shlex.quote(app_name)
+            safe_name = _applescript_quote(app_name)
             script = (
                 'tell application "System Events" to get name of first window '
                 f"of (first process whose name is {safe_name})"
@@ -108,7 +114,7 @@ def _get_active_window_linux() -> tuple[str, str]:
             return ("", "")
 
         name_result = subprocess.run(
-            ["xdotool", "getactivewindow", "getwindowname"],
+            ["xdotool", "getwindowname", window_id],
             capture_output=True,
             text=True,
             timeout=_CMD_TIMEOUT,

@@ -60,14 +60,14 @@ class ReportDialog(QDialog):
         subtitle.setStyleSheet(f"color: {theme.SUBTEXT0};")
         layout.addWidget(subtitle)
 
-        # ── Score card row ──
+        # ── Score card row (weekly aggregate) ──
         try:
-            score_data = self._db.daily_score()
+            weekly = self._db.weekly_summary()
         except Exception:
-            logger.exception("Failed to load daily score for report")
-            score_data = {"score": 0, "total_today": 0, "per_hour": 0}
+            logger.exception("Failed to load weekly summary for report")
+            weekly = {"score": 0, "total_switches": 0, "avg_away": 0}
 
-        score = score_data["score"]
+        score = weekly["score"]
         color = _score_color(score)
 
         card_row = QHBoxLayout()
@@ -75,21 +75,23 @@ class ReportDialog(QDialog):
 
         # Score card
         score_card = self._make_stat_card(
-            f"{score}", "Focus Score", color
+            f"{score}", "Weekly Score", color
         )
         card_row.addWidget(score_card)
 
-        # Switches today card
+        # Total switches card
         switches_card = self._make_stat_card(
-            str(score_data["total_today"]), "Switches Today", theme.BLUE
+            str(weekly["total_switches"]), "Total Switches", theme.BLUE
         )
         card_row.addWidget(switches_card)
 
-        # Per hour card
-        hour_card = self._make_stat_card(
-            str(score_data["per_hour"]), "Last Hour", theme.MAUVE
+        # Avg away card
+        avg_away = weekly["avg_away"]
+        avg_str = f"{avg_away:.0f}s" if avg_away else "—"
+        avg_card = self._make_stat_card(
+            avg_str, "Avg Away", theme.MAUVE
         )
-        card_row.addWidget(hour_card)
+        card_row.addWidget(avg_card)
 
         layout.addLayout(card_row)
 

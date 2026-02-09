@@ -104,13 +104,12 @@ class ResumeFlowApp:
             logger.debug("Quiet hours active; suppressing popup")
             return
         settings = self._settings_mgr.current
-        self._popup.setWindowOpacity(settings.popup_opacity)
-        self._popup.show_resume(info, position=settings.popup_position)
-
-        if settings.popup_duration > 0:
-            QTimer.singleShot(
-                settings.popup_duration * 1000, self._popup.hide
-            )
+        self._popup.show_resume(
+            info,
+            position=settings.popup_position,
+            opacity=settings.popup_opacity,
+            auto_dismiss_ms=settings.popup_duration * 1000,
+        )
 
     def _on_task_submitted(self, task: str) -> None:
         """User entered a micro-task in the popup."""
