@@ -11,16 +11,6 @@ from resumeflow.context_tracker import (
     _MAX_HISTORY,
     _extract_context,
 )
-from resumeflow.database import SwitchLogger
-
-
-@pytest.fixture
-def db(tmp_path):
-    logger = SwitchLogger(str(tmp_path / "test.db"))
-    yield logger
-    logger.close()
-
-
 class TestExtractContext:
     def test_simple_title(self):
         assert _extract_context("main.py - VS Code") == "main.py"

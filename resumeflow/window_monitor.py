@@ -9,7 +9,6 @@ Every public function guarantees a safe ``("", "")`` return on failure.
 """
 
 import logging
-import shlex
 import subprocess
 import sys
 

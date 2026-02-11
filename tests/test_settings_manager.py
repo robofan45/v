@@ -6,15 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from resumeflow.database import SwitchLogger
 from resumeflow.settings_manager import SettingsManager, AppSettings
-
-
-@pytest.fixture
-def db(tmp_path):
-    logger = SwitchLogger(str(tmp_path / "test.db"))
-    yield logger
-    logger.close()
 
 
 class TestSettingsManager:

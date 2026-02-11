@@ -1,18 +1,6 @@
 """Tests for the tray icon rendering logic (non-GUI parts)."""
 
-import pytest
-
 from resumeflow.tray import _create_tray_icon, _ICON_SIZE
-
-
-@pytest.fixture
-def qapp():
-    """Ensure a QApplication exists for pixmap operations."""
-    from PyQt6.QtWidgets import QApplication
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-    yield app
 
 
 class TestCreateTrayIcon:

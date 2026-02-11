@@ -6,15 +6,6 @@ from resumeflow.context_tracker import ResumeInfo
 
 
 @pytest.fixture
-def qapp():
-    from PyQt6.QtWidgets import QApplication
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-    yield app
-
-
-@pytest.fixture
 def popup(qapp):
     from resumeflow.popup import ResumePopup
     widget = ResumePopup()

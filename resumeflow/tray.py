@@ -9,19 +9,12 @@ from PyQt6.QtWidgets import QMenu, QSystemTrayIcon
 
 from .database import SwitchLogger
 from . import theme
+from .theme import score_color
 
 logger = logging.getLogger(__name__)
 
 _ICON_SIZE = 64
-
-
-def _score_color(score: int) -> str:
-    """Return a Catppuccin colour based on the focus score."""
-    if score >= 70:
-        return theme.GREEN
-    if score >= 40:
-        return theme.YELLOW
-    return theme.RED
+_REFRESH_INTERVAL_MS = 10_000
 
 
 def _create_tray_icon(count: int, score: int = 100) -> QIcon:
@@ -32,7 +25,7 @@ def _create_tray_icon(count: int, score: int = 100) -> QIcon:
     painter = QPainter(pixmap)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-    ring_color = QColor(_score_color(score))
+    ring_color = QColor(score_color(score))
 
     # Outer ring (score-coloured)
     pen = QPen(ring_color, 3)
@@ -125,7 +118,7 @@ class TrayManager:
 
     def show(self) -> None:
         self._tray.show()
-        self._timer.start(10_000)
+        self._timer.start(_REFRESH_INTERVAL_MS)
         self.refresh()
 
     def hide(self) -> None:

@@ -28,11 +28,30 @@ MAUVE     = "#cba6f7"
 PINK      = "#f5c2e7"
 ROSEWATER = "#f5e0dc"
 
+# ── Score thresholds ─────────────────────────────────────────────────
+SCORE_GOOD = 70
+SCORE_WARN = 40
+
+
+def score_color(score: int) -> str:
+    """Return a Catppuccin colour based on the focus score."""
+    if score >= SCORE_GOOD:
+        return GREEN
+    if score >= SCORE_WARN:
+        return YELLOW
+    return RED
+
+
+# ── UI constants ─────────────────────────────────────────────────────
+FONT_FAMILY = '"Segoe UI", "SF Pro Display", "Cantarell", "Noto Sans", sans-serif'
+FADE_DURATION_MS = 200
+POPUP_WIDTH = 420
+
 # ── Global application stylesheet ─────────────────────────────────────
 APP_STYLESHEET = f"""
 /* ---- Base -------------------------------------------------------- */
 QWidget {{
-    font-family: "Segoe UI", "SF Pro Display", "Helvetica Neue", sans-serif;
+    font-family: {FONT_FAMILY};
     font-size: 13px;
     color: {TEXT};
 }}

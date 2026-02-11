@@ -182,9 +182,17 @@ class ContextTracker:
         )
 
     def set_micro_task(self, task: str) -> None:
-        """Store a micro-task note for the current window."""
+        """Store a micro-task note for the current window.
+
+        Persists to the DB so the context survives a crash.
+        """
         if self._current:
             self._current.last_context = task
+            if self._current.session_id is not None:
+                self.db.end_session(self._current.session_id, task)
+                self._current.session_id = self.db.start_session(
+                    self._current.title, self._current.app_name
+                )
 
     def update_away_threshold(self, seconds: float) -> None:
         self.away_threshold = seconds

@@ -41,9 +41,13 @@ class ResumeFlowApp:
         self._settings_mgr = SettingsManager(self._db)
         settings = self._settings_mgr.load()
 
+        # Prune stale records on startup
+        self._db.cleanup()
+
         # Popup widget (reused across resume events)
         self._popup = ResumePopup()
         self._popup.task_submitted.connect(self._on_task_submitted)
+        self._popup.dismissed.connect(self._on_popup_dismissed)
 
         # Context tracker
         self._tracker = ContextTracker(
@@ -116,6 +120,10 @@ class ResumeFlowApp:
         if task:
             self._tracker.set_micro_task(task)
             logger.info("Micro-task set: %s", task)
+
+    def _on_popup_dismissed(self) -> None:
+        """User closed the popup without entering a task."""
+        logger.debug("Popup dismissed without micro-task")
 
     def _on_switch(self, from_title: str, to_title: str) -> None:
         """Called on every context switch."""

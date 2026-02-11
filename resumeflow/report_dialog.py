@@ -19,17 +19,9 @@ from PyQt6.QtWidgets import (
 
 from .database import SwitchLogger
 from . import theme
+from .theme import score_color
 
 logger = logging.getLogger(__name__)
-
-
-def _score_color(score: int) -> str:
-    """Return a colour string based on the score."""
-    if score >= 70:
-        return theme.GREEN
-    if score >= 40:
-        return theme.YELLOW
-    return theme.RED
 
 
 class ReportDialog(QDialog):
@@ -68,7 +60,7 @@ class ReportDialog(QDialog):
             weekly = {"score": 0, "total_switches": 0, "avg_away": 0}
 
         score = weekly["score"]
-        color = _score_color(score)
+        color = score_color(score)
 
         card_row = QHBoxLayout()
         card_row.setSpacing(12)

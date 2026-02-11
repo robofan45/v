@@ -59,14 +59,14 @@ class SettingsManager:
         return self._settings
 
     def is_quiet_hours(self) -> bool:
-        s = self.current
-        if not s.quiet_hours_start or not s.quiet_hours_end:
+        settings = self.current
+        if not settings.quiet_hours_start or not settings.quiet_hours_end:
             return False
         now = datetime.now()
         current_minutes = now.hour * 60 + now.minute
         try:
-            sh, sm = map(int, s.quiet_hours_start.split(":"))
-            eh, em = map(int, s.quiet_hours_end.split(":"))
+            sh, sm = map(int, settings.quiet_hours_start.split(":"))
+            eh, em = map(int, settings.quiet_hours_end.split(":"))
         except ValueError:
             return False
         start = sh * 60 + sm

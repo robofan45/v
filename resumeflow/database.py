@@ -16,6 +16,12 @@ logger = logging.getLogger(__name__)
 DB_DIR = os.path.join(os.path.expanduser("~"), ".resumeflow")
 DB_PATH = os.path.join(DB_DIR, "resumeflow.db")
 
+_SECONDS_PER_HOUR = 3600
+_SECONDS_PER_WEEK = 7 * 86_400
+_MAX_SCORE = 100
+_DAILY_PENALTY = 2
+_RETENTION_DAYS = 90
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS context_switches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -158,7 +164,7 @@ class SwitchLogger:
 
     def switches_in_last_hour(self) -> int:
         try:
-            one_hour_ago = time.time() - 3600
+            one_hour_ago = time.time() - _SECONDS_PER_HOUR
             row = self._conn.execute(
                 "SELECT COUNT(*) as cnt FROM context_switches WHERE timestamp > ?",
                 (one_hour_ago,),
@@ -190,12 +196,12 @@ class SwitchLogger:
         """
         total = self.switches_today()
         per_hour = self.switches_in_last_hour()
-        score = max(100 - total * 2, 0)
+        score = max(_MAX_SCORE - total * _DAILY_PENALTY, 0)
         return {"score": score, "total_today": total, "per_hour": per_hour}
 
     def weekly_report(self) -> list[dict]:
         try:
-            week_ago = time.time() - 7 * 86400
+            week_ago = time.time() - _SECONDS_PER_WEEK
             rows = self._conn.execute(
                 """SELECT
                      date(timestamp, 'unixepoch', 'localtime') as day,
@@ -216,7 +222,7 @@ class SwitchLogger:
     def weekly_summary(self) -> dict:
         """Return aggregate stats for the last 7 days."""
         try:
-            week_ago = time.time() - 7 * 86400
+            week_ago = time.time() - _SECONDS_PER_WEEK
             row = self._conn.execute(
                 """SELECT
                      COALESCE(COUNT(*), 0) as total_switches,
@@ -229,11 +235,32 @@ class SwitchLogger:
             avg_away = row["avg_away"] if row else 0
             # Weekly score: fewer switches = higher score.
             # 7 days * ~20 switches/day = 140 as a "bad" baseline.
-            score = max(100 - total, 0)
+            score = max(_MAX_SCORE - total, 0)
             return {"score": score, "total_switches": total, "avg_away": avg_away}
         except sqlite3.Error:
             logger.exception("Failed to generate weekly summary")
             return {"score": 0, "total_switches": 0, "avg_away": 0}
+
+    # -- maintenance ------------------------------------------------------
+
+    def cleanup(self, retention_days: int = _RETENTION_DAYS) -> int:
+        """Delete records older than *retention_days*. Returns rows removed."""
+        cutoff = time.time() - retention_days * 86_400
+        try:
+            cur = self._conn.execute(
+                "DELETE FROM context_switches WHERE timestamp < ?", (cutoff,)
+            )
+            self._conn.execute(
+                "DELETE FROM window_sessions WHERE start_time < ?", (cutoff,)
+            )
+            self._conn.commit()
+            removed = cur.rowcount
+            if removed:
+                logger.info("Cleaned up %d old records (>%d days)", removed, retention_days)
+            return removed
+        except sqlite3.Error:
+            logger.exception("Failed to clean up old records")
+            return 0
 
     # -- settings ---------------------------------------------------------
 

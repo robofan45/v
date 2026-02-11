@@ -48,7 +48,7 @@ class ResumePopup(QWidget):
             | Qt.WindowType.Tool
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
-        self.setFixedWidth(420)
+        self.setFixedWidth(theme.POPUP_WIDTH)
         self._target_opacity: float = 0.95
         self._auto_dismiss_timer: QTimer | None = None
 
@@ -269,7 +269,7 @@ class ResumePopup(QWidget):
     def _fade_in(self) -> None:
         self.setWindowOpacity(0.0)
         self._anim = QPropertyAnimation(self, b"windowOpacity")
-        self._anim.setDuration(200)
+        self._anim.setDuration(theme.FADE_DURATION_MS)
         self._anim.setStartValue(0.0)
         self._anim.setEndValue(self._target_opacity)
         self._anim.setEasingCurve(QEasingCurve.Type.OutCubic)
@@ -320,6 +320,12 @@ class ResumePopup(QWidget):
 
     # -- slots ------------------------------------------------------------
 
+    def keyPressEvent(self, event) -> None:  # noqa: N802
+        if event.key() == Qt.Key.Key_Escape:
+            self._on_dismiss()
+        else:
+            super().keyPressEvent(event)
+
     def _on_submit(self) -> None:
         text = self._task_input.text().strip()
         if not text:
@@ -327,10 +333,14 @@ class ResumePopup(QWidget):
             self._on_dismiss()
             return
         self._cancel_auto_dismiss()
+        if hasattr(self, "_anim"):
+            self._anim.stop()
         self.task_submitted.emit(text)
         self.hide()
 
     def _on_dismiss(self) -> None:
         self._cancel_auto_dismiss()
+        if hasattr(self, "_anim"):
+            self._anim.stop()
         self.dismissed.emit()
         self.hide()

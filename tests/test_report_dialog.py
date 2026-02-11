@@ -1,24 +1,6 @@
 """Tests for the ReportDialog."""
 
-import pytest
-
 from resumeflow.database import SwitchLogger
-
-
-@pytest.fixture
-def qapp():
-    from PyQt6.QtWidgets import QApplication
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-    yield app
-
-
-@pytest.fixture
-def db(tmp_path):
-    logger = SwitchLogger(str(tmp_path / "report.db"))
-    yield logger
-    logger.close()
 
 
 class TestReportDialog:

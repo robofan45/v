@@ -213,7 +213,7 @@ resumeflow/
     settings_manager.py  # Persistent settings via SQLite
     settings_dialog.py   # Settings UI with themed form controls
     report_dialog.py     # Weekly report with stat cards + styled table
-tests/                   # 78 tests across all modules
+tests/                   # 89 tests across all modules
 run.py                   # Quick launcher (no install needed)
 get-resumeflow.sh        # Direct install script (curl | bash)
 install.sh               # One-command installer (macOS/Linux)
@@ -237,7 +237,7 @@ pytest -v
 QT_QPA_PLATFORM=offscreen pytest -v
 ```
 
-78 tests covering: database CRUD, context tracking logic, window monitor dispatch, popup widget behaviour, tray icon rendering, settings persistence, dialog construction, and report generation.
+89 tests covering: database CRUD, context tracking logic, window monitor dispatch, popup widget behaviour, tray icon rendering, settings persistence, dialog construction, and report generation.
 
 ---
 

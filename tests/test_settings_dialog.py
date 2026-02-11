@@ -5,15 +5,6 @@ import pytest
 from resumeflow.settings_manager import AppSettings
 
 
-@pytest.fixture
-def qapp():
-    from PyQt6.QtWidgets import QApplication
-    app = QApplication.instance()
-    if app is None:
-        app = QApplication([])
-    yield app
-
-
 class TestSettingsDialog:
     def test_loads_defaults(self, qapp):
         from resumeflow.settings_dialog import SettingsDialog

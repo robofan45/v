@@ -5,13 +5,6 @@ import pytest
 from resumeflow.database import SwitchLogger
 
 
-@pytest.fixture
-def db(tmp_path):
-    logger = SwitchLogger(str(tmp_path / "test.db"))
-    yield logger
-    logger.close()
-
-
 class TestSwitchLogger:
     def test_log_switch(self, db):
         row_id = db.log_switch("Window A", "Window B", 45.0, "fix bug")
