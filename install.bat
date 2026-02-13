@@ -34,8 +34,15 @@ if not exist ".venv" (
 REM --- Install dependencies -----------------------------------------------
 echo [INFO]  Installing ResumeFlow and dependencies...
 call .venv\Scripts\activate.bat
-pip install --upgrade pip --quiet
-pip install -e . --quiet
+python -m pip install --upgrade pip --quiet 2>nul
+python -m pip install -e . --quiet
+if errorlevel 1 (
+    echo [FAIL]  Failed to install dependencies.
+    echo         Try running manually:
+    echo           .venv\Scripts\python.exe -m pip install -e .
+    pause
+    exit /b 1
+)
 echo [OK]    Dependencies installed
 
 echo.

@@ -48,7 +48,7 @@ def _get_active_window_windows() -> tuple[str, str]:
             app_name = title.rsplit(" - ", 1)[-1] if " - " in title else ""
         return (title, app_name)
     except Exception:
-        logger.debug("Windows active-window detection failed", exc_info=True)
+        logger.warning("Windows active-window detection failed", exc_info=True)
         return ("", "")
 
 

@@ -91,6 +91,8 @@ class ContextTracker:
             str, tuple[float, str]
         ] = collections.OrderedDict()
         self._running = False
+        self._empty_polls: int = 0
+        self._warned_no_detection = False
 
     @property
     def running(self) -> bool:
@@ -120,8 +122,18 @@ class ContextTracker:
             return
 
         if not title:
+            self._empty_polls += 1
+            if self._empty_polls >= 30 and not self._warned_no_detection:
+                logger.warning(
+                    "Window detection returned empty %d times in a row. "
+                    "Check that pygetwindow (Windows) or xdotool (Linux) "
+                    "is installed.",
+                    self._empty_polls,
+                )
+                self._warned_no_detection = True
             return
 
+        self._empty_polls = 0
         now = time.time()
 
         # Same window — no switch
