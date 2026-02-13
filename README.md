@@ -1,5 +1,10 @@
 # ResumeFlow
 
+![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776ab?logo=python&logoColor=white)
+![License MIT](https://img.shields.io/badge/License-MIT-a6e3a1)
+![Tests 89 passing](https://img.shields.io/badge/Tests-89_passing-a6e3a1)
+![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-89b4fa)
+
 **A lightweight desktop app that helps you stay focused by tracking context switches and helping you resume work faster.**
 
 When you return to a window after being away, ResumeFlow shows a small popup reminding you what you were last doing and lets you jot down a quick micro-task before diving back in.
@@ -8,14 +13,64 @@ Everything runs locally. No cloud, no telemetry, no accounts. Your data never le
 
 ---
 
+## Quick Start
+
+**macOS / Linux:**
+
+```bash
+git clone https://github.com/robofan45/v.git && cd v && pip install -e . && resumeflow
+```
+
+**Windows:**
+
+```cmd
+git clone https://github.com/robofan45/v.git %USERPROFILE%\ResumeFlow && cd %USERPROFILE%\ResumeFlow && install.bat
+```
+
+Then run: `.venv\Scripts\resumeflow.exe`
+
+---
+
+## How It Works
+
+```
+                    +-----------------+
+                    |  Poll active    |
+                    |  window (1s)    |
+                    +--------+--------+
+                             |
+                     Window changed?
+                        /        \
+                      No          Yes
+                      |            |
+                    (wait)    Log switch to DB
+                               |
+                        Away > threshold?
+                           /        \
+                         No          Yes
+                         |            |
+                       (done)   +------------------+
+                                | Show popup:      |
+                                |  - Away time     |
+                                |  - Last context  |
+                                |  - Micro-task    |
+                                +------------------+
+                                         |
+                                 Save task as context
+                                 for next time
+```
+
+ResumeFlow watches which window you're using. When you return to a window after being away longer than the threshold (default: 30 seconds), it shows a small popup to help you pick up where you left off.
+
+---
+
 ## Features
 
 - **Window Monitoring** -- Detects active window changes on Windows, macOS, and Linux
 - **Resume Popup** -- Non-intrusive floating widget with fade-in animation appears when you return to a window after being away
 - **Micro-task Capture** -- One-line text field to write your next action, saved as context for next time
-- **Focus Score** -- Real-time 0-100 score displayed in system tray (green/yellow/red colour coding)
+- **Focus Score** -- Real-time 0-100 score displayed in system tray with colour-coded ring (green/yellow/red)
 - **Weekly Reports** -- Visual dashboard with stat cards, progress bar, and colour-coded daily breakdown table
-- **SQLite Logging** -- All switches logged locally at `~/.resumeflow/resumeflow.db`
 - **Quiet Hours** -- Suppress popups during configurable time windows (supports midnight wrapping)
 - **Dark Theme** -- Polished Catppuccin Mocha dark theme across all UI components
 - **Configurable** -- Away threshold, popup position, opacity, auto-dismiss, poll interval
@@ -152,15 +207,15 @@ ResumeFlow starts minimised to the **system tray**. Look for the circular icon w
 
 ### System Tray
 
-- The **number** on the icon shows your switches per hour
-- The **ring colour** shows your focus score:
-  - Green = great focus (score >= 70)
-  - Yellow = moderate switching (score 40-69)
-  - Red = high switching (score < 40)
+- The **number** on the icon shows your context switches per hour
+- The **ring colour** reflects your focus score:
+  - **Green** = great focus (score >= 70)
+  - **Yellow** = moderate switching (score 40-69)
+  - **Red** = high context switching (score < 40)
 - **Right-click** the tray icon to access the menu:
-  - **Weekly Report** -- View your stats dashboard
-  - **Settings** -- Configure thresholds and popup behaviour
-  - **Quit** -- Clean shutdown
+  - **Weekly Report** -- open the stats dashboard
+  - **Settings** -- configure thresholds and popup behaviour
+  - **Quit** -- clean shutdown
 
 ### Resume Popup
 
@@ -171,13 +226,20 @@ When you switch back to a window after being away longer than the threshold (def
 3. Type your next micro-task and press **Enter** or click **Go**
 4. The popup closes and your task is saved as context for next time
 
+**Keyboard shortcuts:**
+
+| Key | Action |
+|-----|--------|
+| **Enter** | Submit micro-task and close popup |
+| **Escape** | Dismiss popup without saving |
+
 ### Weekly Report
 
 The report dialog shows:
 
-- Three stat cards: **Focus Score**, **Switches Today**, **Last Hour**
-- A colour-coded progress bar for your score
-- A table with daily breakdown: date, switch count, average away time, max away time
+- Three stat cards: **Weekly Score**, **Total Switches**, **Avg Away**
+- A colour-coded progress bar for your overall score
+- A daily breakdown table: date, switch count, average away time, max away time
 - Switch counts are colour-coded (green < 15, yellow 15-30, red > 30)
 
 ---
@@ -197,47 +259,14 @@ Settings are saved to the SQLite database and persist across restarts.
 
 ---
 
-## Project Structure
+## Privacy & Data
 
-```
-resumeflow/
-    __init__.py          # Package metadata
-    __main__.py          # python -m resumeflow entry point
-    app.py               # Main controller, signal handlers, shutdown
-    theme.py             # Catppuccin Mocha theme and global stylesheet
-    context_tracker.py   # Switch detection, away timing, LRU history
-    database.py          # SQLite layer (WAL mode, error-safe)
-    window_monitor.py    # Cross-platform active window detection
-    popup.py             # Floating resume popup with drop shadow + animation
-    tray.py              # System tray icon with score-coloured ring
-    settings_manager.py  # Persistent settings via SQLite
-    settings_dialog.py   # Settings UI with themed form controls
-    report_dialog.py     # Weekly report with stat cards + styled table
-tests/                   # 89 tests across all modules
-run.py                   # Quick launcher (no install needed)
-get-resumeflow.sh        # Direct install script (curl | bash)
-install.sh               # One-command installer (macOS/Linux)
-install.bat              # One-command installer (Windows)
-Makefile                 # make install / run / test / clean
-pyproject.toml           # Package configuration
-```
+ResumeFlow is fully offline and collects **zero** telemetry.
 
----
-
-## Development
-
-```bash
-# Install with dev dependencies
-pip install -e ".[dev]"
-
-# Run tests
-pytest -v
-
-# Run tests headless (CI / no display)
-QT_QPA_PLATFORM=offscreen pytest -v
-```
-
-89 tests covering: database CRUD, context tracking logic, window monitor dispatch, popup widget behaviour, tray icon rendering, settings persistence, dialog construction, and report generation.
+- All data is stored locally at `~/.resumeflow/resumeflow.db`
+- Zero outbound network connections -- the app never contacts any server
+- Records older than 90 days are automatically pruned on startup
+- To reset all data, delete the database: `rm ~/.resumeflow/resumeflow.db`
 
 ---
 
@@ -260,7 +289,52 @@ Check your version with `python3 --version`. If you need to upgrade, visit [pyth
 
 ---
 
-## Design Decisions
+## Development
+
+```bash
+# Install with dev dependencies
+pip install -e ".[dev]"
+
+# Run tests
+pytest -v
+
+# Run tests headless (CI / no display)
+QT_QPA_PLATFORM=offscreen pytest -v
+```
+
+89 tests covering: database CRUD, context tracking logic, window monitor dispatch, popup widget behaviour, tray icon rendering, settings persistence, dialog construction, and report generation.
+
+<details>
+<summary><strong>Project Structure</strong></summary>
+
+```
+resumeflow/
+    __init__.py          # Package metadata
+    __main__.py          # python -m resumeflow entry point
+    app.py               # Main controller, signal handlers, shutdown
+    theme.py             # Catppuccin Mocha theme and global stylesheet
+    context_tracker.py   # Switch detection, away timing, LRU history
+    database.py          # SQLite layer (WAL mode, error-safe)
+    window_monitor.py    # Cross-platform active window detection
+    popup.py             # Floating resume popup with drop shadow + animation
+    tray.py              # System tray icon with score-coloured ring
+    settings_manager.py  # Persistent settings via SQLite
+    settings_dialog.py   # Settings UI with themed form controls
+    report_dialog.py     # Weekly report with stat cards + styled table
+tests/
+    conftest.py          # Shared test fixtures (qapp, db)
+    test_*.py            # 89 tests across 8 test files
+run.py                   # Quick launcher (no install needed)
+get-resumeflow.sh        # Direct install script (curl | bash)
+install.sh               # One-command installer (macOS/Linux)
+install.bat              # One-command installer (Windows)
+Makefile                 # make install / run / test / clean
+pyproject.toml           # Package configuration
+```
+</details>
+
+<details>
+<summary><strong>Design Decisions</strong></summary>
 
 - **Single-threaded** -- All work on the Qt main thread via `QTimer`. No locks, no race conditions.
 - **Bounded memory** -- Window history is an LRU `OrderedDict` capped at 500 entries.
@@ -268,6 +342,9 @@ Check your version with `python3 --version`. If you need to upgrade, visit [pyth
 - **Graceful shutdown** -- SIGINT and SIGTERM handled; all resources cleaned up on exit.
 - **No network** -- Zero outbound connections. Data stays on disk at `~/.resumeflow/`.
 - **Catppuccin Mocha** -- Consistent dark theme across all UI components.
+</details>
+
+---
 
 ## License
 
