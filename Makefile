@@ -1,9 +1,18 @@
-.PHONY: install run test clean
+.PHONY: help install run test clean
 
 VENV    := .venv
 PY      := $(VENV)/bin/python
 PIP     := $(VENV)/bin/pip
 APP     := $(VENV)/bin/resumeflow
+
+# ── Help (default) ───────────────────────────────────────────
+help:
+	@echo "Usage:  make <target>"
+	@echo ""
+	@echo "  install   Create venv and install dependencies"
+	@echo "  run       Install + start ResumeFlow"
+	@echo "  test      Run the full test suite"
+	@echo "  clean     Remove venv and build artifacts"
 
 # ── Install ──────────────────────────────────────────────────
 install: $(VENV)/bin/activate
