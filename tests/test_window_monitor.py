@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+import resumeflow.window_monitor as wm
 from resumeflow.window_monitor import (
     _get_active_window_linux,
     _get_active_window_macos,
@@ -114,3 +115,36 @@ class TestMacOSDetection:
         title, app = _get_active_window_macos()
         assert title == ""
         assert app == ""
+
+
+class TestWarnOnce:
+    """Verify that missing-dependency warnings only fire once, not on every poll."""
+
+    def setup_method(self):
+        """Reset warn-once flags before each test."""
+        wm._warned_no_xdotool = False
+        wm._warned_no_pygetwindow = False
+        wm._warned_no_appkit = False
+
+    @patch("resumeflow.window_monitor.subprocess.run")
+    def test_linux_xdotool_warns_once(self, mock_run):
+        mock_run.side_effect = FileNotFoundError("xdotool")
+        with patch("resumeflow.window_monitor.logger") as mock_logger:
+            _get_active_window_linux()
+            _get_active_window_linux()
+            _get_active_window_linux()
+        assert mock_logger.warning.call_count == 1
+
+    def test_windows_warns_once(self):
+        with patch("resumeflow.window_monitor.logger") as mock_logger:
+            _get_active_window_windows()
+            _get_active_window_windows()
+            _get_active_window_windows()
+        assert mock_logger.warning.call_count == 1
+
+    def test_macos_warns_once(self):
+        with patch("resumeflow.window_monitor.logger") as mock_logger:
+            _get_active_window_macos()
+            _get_active_window_macos()
+            _get_active_window_macos()
+        assert mock_logger.warning.call_count == 1

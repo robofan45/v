@@ -87,6 +87,7 @@ class ResumeFlowApp:
         self._tray.show()
         self._tracker.start()
         self._poll_timer.start()
+        self._show_dashboard()
         return self._qt_app.exec()
 
     # -- signal handlers --------------------------------------------------
