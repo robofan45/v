@@ -2,7 +2,7 @@
 
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776ab?logo=python&logoColor=white)
 ![License MIT](https://img.shields.io/badge/License-MIT-a6e3a1)
-![Tests 89 passing](https://img.shields.io/badge/Tests-89_passing-a6e3a1)
+![Tests 150 passing](https://img.shields.io/badge/Tests-150_passing-a6e3a1)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-89b4fa)
 
 **A lightweight desktop app that helps you stay focused by tracking context switches and helping you resume work faster.**
@@ -67,6 +67,7 @@ ResumeFlow watches which window you're using. When you return to a window after 
 ## Features
 
 - **Window Monitoring** -- Detects active window changes on Windows, macOS, and Linux
+- **Dashboard** -- Live dashboard window with focus score, switch count, per-hour rate, progress bar, and recent context switches table (auto-refreshes every 5 seconds)
 - **Resume Popup** -- Non-intrusive floating widget with fade-in animation appears when you return to a window after being away
 - **Micro-task Capture** -- One-line text field to write your next action, saved as context for next time
 - **Focus Score** -- Real-time 0-100 score displayed in system tray with colour-coded ring (green/yellow/red)
@@ -203,7 +204,17 @@ python run.py
 
 ## How to Use
 
-ResumeFlow starts minimised to the **system tray**. Look for the circular icon with a number in it.
+ResumeFlow starts with the **Dashboard** window open and a **system tray** icon. Look for the circular icon with a number in it.
+
+### Dashboard
+
+The dashboard window shows:
+- **Focus Score** -- live 0-100 score with colour-coded progress bar
+- **Switches Today** -- total context switches since midnight
+- **Per Hour** -- switches per hour in the last hour
+- **Recent Switches** -- table of recent context switches with colour-coded away times
+
+The dashboard hides when closed and can be reopened from the tray menu.
 
 ### System Tray
 
@@ -213,6 +224,7 @@ ResumeFlow starts minimised to the **system tray**. Look for the circular icon w
   - **Yellow** = moderate switching (score 40-69)
   - **Red** = high context switching (score < 40)
 - **Right-click** the tray icon to access the menu:
+  - **Dashboard** -- open the live stats dashboard
   - **Weekly Report** -- open the stats dashboard
   - **Settings** -- configure thresholds and popup behaviour
   - **Quit** -- clean shutdown
@@ -302,7 +314,7 @@ pytest -v
 QT_QPA_PLATFORM=offscreen pytest -v
 ```
 
-89 tests covering: database CRUD, context tracking logic, window monitor dispatch, popup widget behaviour, tray icon rendering, settings persistence, dialog construction, and report generation.
+150 tests covering: database CRUD, context tracking logic, window monitor dispatch, popup widget behaviour, tray icon rendering, settings persistence, dialog construction, report generation, dashboard UI, theme constants, and warn-once behaviour.
 
 <details>
 <summary><strong>Project Structure</strong></summary>
@@ -314,6 +326,7 @@ resumeflow/
     app.py               # Main controller, signal handlers, shutdown
     theme.py             # Catppuccin Mocha theme and global stylesheet
     context_tracker.py   # Switch detection, away timing, LRU history
+    dashboard.py         # Live dashboard window with stats and table
     database.py          # SQLite layer (WAL mode, error-safe)
     window_monitor.py    # Cross-platform active window detection
     popup.py             # Floating resume popup with drop shadow + animation
@@ -323,7 +336,7 @@ resumeflow/
     report_dialog.py     # Weekly report with stat cards + styled table
 tests/
     conftest.py          # Shared test fixtures (qapp, db)
-    test_*.py            # 89 tests across 8 test files
+    test_*.py            # 150 tests across 10 test files
 run.py                   # Quick launcher (no install needed)
 get-resumeflow.sh        # Direct install script (curl | bash)
 install.sh               # One-command installer (macOS/Linux)

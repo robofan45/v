@@ -64,6 +64,7 @@ class TrayManager:
     def __init__(
         self,
         db: SwitchLogger,
+        on_show_dashboard: Optional[Callable[[], None]] = None,
         on_show_settings: Optional[Callable[[], None]] = None,
         on_show_report: Optional[Callable[[], None]] = None,
         on_quit: Optional[Callable[[], None]] = None,
@@ -88,6 +89,12 @@ class TrayManager:
         self._menu.addSeparator()
 
         # Store as instance attrs to prevent garbage collection in PyQt6.
+        self._dashboard_action: QAction | None = None
+        if on_show_dashboard:
+            self._dashboard_action = QAction("Dashboard...")
+            self._dashboard_action.triggered.connect(on_show_dashboard)
+            self._menu.addAction(self._dashboard_action)
+
         self._report_action: QAction | None = None
         if on_show_report:
             self._report_action = QAction("Weekly Report...")

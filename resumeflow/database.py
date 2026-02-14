@@ -219,6 +219,21 @@ class SwitchLogger:
             logger.exception("Failed to generate weekly report")
             return []
 
+    def recent_switches(self, limit: int = 20) -> list[dict]:
+        """Return the most recent context switches, newest first."""
+        try:
+            rows = self._conn.execute(
+                """SELECT timestamp, from_window, to_window, away_seconds
+                   FROM context_switches
+                   ORDER BY timestamp DESC
+                   LIMIT ?""",
+                (limit,),
+            ).fetchall()
+            return [dict(r) for r in rows]
+        except sqlite3.Error:
+            logger.exception("Failed to query recent switches")
+            return []
+
     def weekly_summary(self) -> dict:
         """Return aggregate stats for the last 7 days."""
         try:
