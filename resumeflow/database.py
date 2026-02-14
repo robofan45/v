@@ -235,7 +235,7 @@ class SwitchLogger:
                 (one_hour_ago, today_start),
             ).fetchone()
             total = row["total"] if row else 0
-            per_hour = row["per_hour"] if row else 0
+            per_hour = row["per_hour"] if row and row["per_hour"] is not None else 0
             score = max(_MAX_SCORE - total * _DAILY_PENALTY, 0)
             return {"score": score, "total_today": total, "per_hour": per_hour}
         except sqlite3.Error:
