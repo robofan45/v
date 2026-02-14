@@ -2,7 +2,7 @@
 
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776ab?logo=python&logoColor=white)
 ![License MIT](https://img.shields.io/badge/License-MIT-a6e3a1)
-![Tests 89 passing](https://img.shields.io/badge/Tests-89_passing-a6e3a1)
+![Tests 112 passing](https://img.shields.io/badge/Tests-112_passing-a6e3a1)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-89b4fa)
 
 **A lightweight desktop app that helps you stay focused by tracking context switches and helping you resume work faster.**
@@ -69,8 +69,9 @@ ResumeFlow watches which window you're using. When you return to a window after 
 - **Window Monitoring** -- Detects active window changes on Windows, macOS, and Linux
 - **Resume Popup** -- Non-intrusive floating widget with fade-in animation appears when you return to a window after being away
 - **Micro-task Capture** -- One-line text field to write your next action, saved as context for next time
+- **Dashboard** -- Main window with live focus score, switches today, per-hour rate, and a recent context switches table (opens on startup)
 - **Focus Score** -- Real-time 0-100 score displayed in system tray with colour-coded ring (green/yellow/red)
-- **Weekly Reports** -- Visual dashboard with stat cards, progress bar, and colour-coded daily breakdown table
+- **Weekly Reports** -- Visual dialog with stat cards, progress bar, and colour-coded daily breakdown table
 - **Quiet Hours** -- Suppress popups during configurable time windows (supports midnight wrapping)
 - **Dark Theme** -- Polished Catppuccin Mocha dark theme across all UI components
 - **Configurable** -- Away threshold, popup position, opacity, auto-dismiss, poll interval
@@ -203,7 +204,18 @@ python run.py
 
 ## How to Use
 
-ResumeFlow starts minimised to the **system tray**. Look for the circular icon with a number in it.
+ResumeFlow opens the **Dashboard** window on startup and also lives in the **system tray**. Look for the circular icon with a number in it.
+
+### Dashboard
+
+The main window shows at-a-glance stats that auto-refresh every 5 seconds:
+
+- **Focus Score** -- colour-coded 0-100 score with progress bar
+- **Switches Today** -- total context switches since midnight
+- **Per Hour** -- switches in the last hour
+- **Recent Switches** -- table of the last 20 context switches with colour-coded away times
+
+Close the dashboard to minimise it; reopen from the tray menu at any time.
 
 ### System Tray
 
@@ -213,7 +225,8 @@ ResumeFlow starts minimised to the **system tray**. Look for the circular icon w
   - **Yellow** = moderate switching (score 40-69)
   - **Red** = high context switching (score < 40)
 - **Right-click** the tray icon to access the menu:
-  - **Weekly Report** -- open the stats dashboard
+  - **Dashboard** -- open the main dashboard window
+  - **Weekly Report** -- open the weekly stats dialog
   - **Settings** -- configure thresholds and popup behaviour
   - **Quit** -- clean shutdown
 
@@ -302,7 +315,7 @@ pytest -v
 QT_QPA_PLATFORM=offscreen pytest -v
 ```
 
-89 tests covering: database CRUD, context tracking logic, window monitor dispatch, popup widget behaviour, tray icon rendering, settings persistence, dialog construction, and report generation.
+112 tests covering: database CRUD, context tracking logic, window monitor dispatch, popup widget behaviour, tray icon rendering, settings persistence, dialog construction, report generation, and dashboard display.
 
 <details>
 <summary><strong>Project Structure</strong></summary>
@@ -312,6 +325,7 @@ resumeflow/
     __init__.py          # Package metadata
     __main__.py          # python -m resumeflow entry point
     app.py               # Main controller, signal handlers, shutdown
+    dashboard.py         # Main dashboard window with live stats + recent switches
     theme.py             # Catppuccin Mocha theme and global stylesheet
     context_tracker.py   # Switch detection, away timing, LRU history
     database.py          # SQLite layer (WAL mode, error-safe)
@@ -323,7 +337,7 @@ resumeflow/
     report_dialog.py     # Weekly report with stat cards + styled table
 tests/
     conftest.py          # Shared test fixtures (qapp, db)
-    test_*.py            # 89 tests across 8 test files
+    test_*.py            # 112 tests across 9 test files
 run.py                   # Quick launcher (no install needed)
 get-resumeflow.sh        # Direct install script (curl | bash)
 install.sh               # One-command installer (macOS/Linux)
