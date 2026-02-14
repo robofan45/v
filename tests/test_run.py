@@ -1,7 +1,6 @@
 """Tests for run.py helper functions."""
 
 import sys
-import importlib
 from unittest import mock
 
 import pytest
@@ -11,7 +10,9 @@ import pytest
 
 def _load_run_helpers():
     """Load run.py functions without triggering the checks at module level."""
-    import types, ast, textwrap, os
+    import types
+    import ast
+    import os
 
     run_path = os.path.join(os.path.dirname(__file__), os.pardir, "run.py")
     with open(run_path) as f:
@@ -52,12 +53,9 @@ class TestCheckPythonVersion:
 
 
 class TestCheckDependencies:
-    def test_passes_when_all_installed(self):
-        """Should return immediately when PyQt6 and psutil are importable."""
-        _helpers._check_dependencies()
-
-    def test_prompts_on_missing_dep(self):
-        """Should prompt and exit when user declines install."""
+    @staticmethod
+    def _fake_missing_psutil():
+        """Return an import function that raises ImportError for psutil."""
         orig_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
 
         def fake_import(name, *args, **kwargs):
@@ -65,7 +63,15 @@ class TestCheckDependencies:
                 raise ImportError("no psutil")
             return orig_import(name, *args, **kwargs)
 
-        with mock.patch("builtins.__import__", side_effect=fake_import):
+        return fake_import
+
+    def test_passes_when_all_installed(self):
+        """Should return immediately when PyQt6 and psutil are importable."""
+        _helpers._check_dependencies()
+
+    def test_prompts_on_missing_dep(self):
+        """Should prompt and exit when user declines install."""
+        with mock.patch("builtins.__import__", side_effect=self._fake_missing_psutil()):
             with mock.patch("builtins.input", return_value="n"):
                 with pytest.raises(SystemExit) as exc_info:
                     _helpers._check_dependencies()
@@ -73,14 +79,7 @@ class TestCheckDependencies:
 
     def test_installs_on_yes(self):
         """Should call pip install when user says yes."""
-        orig_import = __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
-
-        def fake_import(name, *args, **kwargs):
-            if name == "psutil":
-                raise ImportError("no psutil")
-            return orig_import(name, *args, **kwargs)
-
-        with mock.patch("builtins.__import__", side_effect=fake_import):
+        with mock.patch("builtins.__import__", side_effect=self._fake_missing_psutil()):
             with mock.patch("builtins.input", return_value="y"):
                 with mock.patch("subprocess.check_call") as mock_call:
                     _helpers._check_dependencies()
