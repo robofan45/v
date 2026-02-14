@@ -1,7 +1,5 @@
 """Tests for the dashboard window."""
 
-import time
-
 import pytest
 
 from resumeflow.dashboard import DashboardWindow, _truncate
