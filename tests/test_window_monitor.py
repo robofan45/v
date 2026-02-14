@@ -39,13 +39,15 @@ class TestGetActiveWindowDispatch:
 class TestLinuxWindowDetection:
     @patch("resumeflow.window_monitor.subprocess.run")
     def test_returns_title_and_app(self, mock_run):
-        wid_result = MagicMock(returncode=0, stdout="12345678\n")
-        name_result = MagicMock(returncode=0, stdout="main.py - VS Code\n")
+        # Combined xdotool call returns window ID on first line, title on second
+        combined_result = MagicMock(
+            returncode=0, stdout="12345678\nmain.py - VS Code\n"
+        )
         prop_result = MagicMock(
             returncode=0,
             stdout='WM_CLASS(STRING) = "code", "Code"\n',
         )
-        mock_run.side_effect = [wid_result, name_result, prop_result]
+        mock_run.side_effect = [combined_result, prop_result]
 
         title, app = _get_active_window_linux()
         assert title == "main.py - VS Code"
@@ -73,31 +75,34 @@ class TestLinuxWindowDetection:
 
     @patch("resumeflow.window_monitor.subprocess.run")
     def test_handles_malformed_wm_class(self, mock_run):
-        wid_result = MagicMock(returncode=0, stdout="12345678\n")
-        name_result = MagicMock(returncode=0, stdout="Terminal\n")
+        combined_result = MagicMock(
+            returncode=0, stdout="12345678\nTerminal\n"
+        )
         prop_result = MagicMock(returncode=0, stdout="WM_CLASS not found\n")
-        mock_run.side_effect = [wid_result, name_result, prop_result]
+        mock_run.side_effect = [combined_result, prop_result]
 
         title, app = _get_active_window_linux()
         assert title == "Terminal"
         assert app == ""
 
     @patch("resumeflow.window_monitor.subprocess.run")
-    def test_uses_captured_window_id_for_title(self, mock_run):
-        """Verify xdotool getwindowname uses the captured window_id, not getactivewindow."""
-        wid_result = MagicMock(returncode=0, stdout="99887766\n")
-        name_result = MagicMock(returncode=0, stdout="My Window\n")
+    def test_xprop_uses_window_id_from_combined_output(self, mock_run):
+        """Verify xprop receives the window ID parsed from the combined xdotool output."""
+        combined_result = MagicMock(
+            returncode=0, stdout="99887766\nMy Window\n"
+        )
         prop_result = MagicMock(
             returncode=0,
             stdout='WM_CLASS(STRING) = "app", "App"\n',
         )
-        mock_run.side_effect = [wid_result, name_result, prop_result]
+        mock_run.side_effect = [combined_result, prop_result]
 
         _get_active_window_linux()
 
-        # Second call should be getwindowname with the captured id
-        second_call_args = mock_run.call_args_list[1][0][0]
-        assert second_call_args == ["xdotool", "getwindowname", "99887766"]
+        # Second call should be xprop with the captured id
+        assert mock_run.call_count == 2
+        xprop_call_args = mock_run.call_args_list[1][0][0]
+        assert xprop_call_args == ["xprop", "-id", "99887766", "WM_CLASS"]
 
 
 class TestWindowsDetection:

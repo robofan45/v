@@ -143,48 +143,54 @@ class ContextTracker:
         # Window changed
         prev = self._current
 
-        # Close previous session
-        if prev:
-            if prev.session_id is not None:
-                self.db.end_session(prev.session_id, prev.last_context)
-            self._window_history[prev.title] = (now, prev.last_context)
-            # Move to end (most-recently used) and enforce size cap.
-            self._window_history.move_to_end(prev.title)
-            while len(self._window_history) > _MAX_HISTORY:
-                self._window_history.popitem(last=False)
+        # Batch the end-session, log-switch, and start-session writes
+        # into a single transaction instead of three separate commits.
+        self.db.begin_batch()
+        try:
+            # Close previous session
+            if prev:
+                if prev.session_id is not None:
+                    self.db.end_session(prev.session_id, prev.last_context)
+                self._window_history[prev.title] = (now, prev.last_context)
+                # Move to end (most-recently used) and enforce size cap.
+                self._window_history.move_to_end(prev.title)
+                while len(self._window_history) > _MAX_HISTORY:
+                    self._window_history.popitem(last=False)
 
-        # Check if we're returning to a known window
-        away: float = 0
-        if title in self._window_history:
-            left_at, last_ctx = self._window_history[title]
-            away = now - left_at
-            if away >= self.away_threshold and self.on_resume:
-                info = ResumeInfo(
-                    window_title=title,
-                    app_name=app_name,
+            # Check if we're returning to a known window
+            away: float = 0
+            if title in self._window_history:
+                left_at, last_ctx = self._window_history[title]
+                away = now - left_at
+                if away >= self.away_threshold and self.on_resume:
+                    info = ResumeInfo(
+                        window_title=title,
+                        app_name=app_name,
+                        away_seconds=away,
+                        last_context=last_ctx or _extract_context(title),
+                    )
+                    try:
+                        self.on_resume(info)
+                    except Exception:
+                        logger.exception("Error in on_resume callback")
+
+            # Log switch
+            if prev:
+                self.db.log_switch(
+                    from_window=prev.title,
+                    to_window=title,
                     away_seconds=away,
-                    last_context=last_ctx or _extract_context(title),
                 )
-                try:
-                    self.on_resume(info)
-                except Exception:
-                    logger.exception("Error in on_resume callback")
+                if self.on_switch:
+                    try:
+                        self.on_switch(prev.title, title)
+                    except Exception:
+                        logger.exception("Error in on_switch callback")
 
-        # Log switch
-        if prev:
-            self.db.log_switch(
-                from_window=prev.title,
-                to_window=title,
-                away_seconds=away,
-            )
-            if self.on_switch:
-                try:
-                    self.on_switch(prev.title, title)
-                except Exception:
-                    logger.exception("Error in on_switch callback")
-
-        # Start new session
-        session_id = self.db.start_session(title, app_name)
+            # Start new session
+            session_id = self.db.start_session(title, app_name)
+        finally:
+            self.db.end_batch()
         self._current = WindowState(
             title=title,
             app_name=app_name,

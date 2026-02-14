@@ -100,26 +100,21 @@ def _get_active_window_linux() -> tuple[str, str]:
     title = ""
     app_name = ""
     try:
-        wid = subprocess.run(
-            ["xdotool", "getactivewindow"],
+        # Combine getactivewindow and getwindowname into a single
+        # xdotool invocation to halve subprocess overhead per poll.
+        result = subprocess.run(
+            ["xdotool", "getactivewindow", "getwindowname"],
             capture_output=True,
             text=True,
             timeout=_CMD_TIMEOUT,
         )
-        if wid.returncode != 0:
+        if result.returncode != 0:
             return ("", "")
-        window_id = wid.stdout.strip()
-        if not window_id:
+        lines = result.stdout.strip().splitlines()
+        if len(lines) < 2 or not lines[0]:
             return ("", "")
-
-        name_result = subprocess.run(
-            ["xdotool", "getwindowname", window_id],
-            capture_output=True,
-            text=True,
-            timeout=_CMD_TIMEOUT,
-        )
-        if name_result.returncode == 0:
-            title = name_result.stdout.strip()
+        window_id = lines[0]
+        title = lines[1]
 
         # Get WM_CLASS for app name
         prop_result = subprocess.run(

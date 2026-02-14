@@ -99,6 +99,26 @@ class SwitchLogger:
         except sqlite3.Error:
             logger.exception("Error closing database connection")
 
+    # -- transaction batching ---------------------------------------------
+
+    def begin_batch(self) -> None:
+        """Begin a deferred transaction for batching multiple writes."""
+        self._batch_depth = getattr(self, "_batch_depth", 0) + 1
+
+    def end_batch(self) -> None:
+        """Commit the current batch if this is the outermost call."""
+        self._batch_depth = getattr(self, "_batch_depth", 0) - 1
+        if self._batch_depth <= 0:
+            self._batch_depth = 0
+            try:
+                self._conn.commit()
+            except sqlite3.Error:
+                logger.exception("Failed to commit batch")
+
+    @property
+    def _in_batch(self) -> bool:
+        return getattr(self, "_batch_depth", 0) > 0
+
     # -- writes -----------------------------------------------------------
 
     def log_switch(
@@ -115,7 +135,8 @@ class SwitchLogger:
                    VALUES (?, ?, ?, ?, ?)""",
                 (time.time(), from_window, to_window, away_seconds, micro_task),
             )
-            self._conn.commit()
+            if not self._in_batch:
+                self._conn.commit()
             return cur.lastrowid
         except sqlite3.Error:
             logger.exception("Failed to log context switch")
@@ -129,7 +150,8 @@ class SwitchLogger:
                    VALUES (?, ?, ?)""",
                 (window_title, app_name, time.time()),
             )
-            self._conn.commit()
+            if not self._in_batch:
+                self._conn.commit()
             return cur.lastrowid
         except sqlite3.Error:
             logger.exception("Failed to start window session")
@@ -143,7 +165,8 @@ class SwitchLogger:
                    WHERE id = ?""",
                 (time.time(), last_context, session_id),
             )
-            self._conn.commit()
+            if not self._in_batch:
+                self._conn.commit()
         except sqlite3.Error:
             logger.exception("Failed to end window session %d", session_id)
 
@@ -193,11 +216,31 @@ class SwitchLogger:
 
         Score: ``max(100 - switches_today * 2, 0)``.
         Lower switch count = higher score.
+
+        Uses a single query instead of two separate calls to
+        ``switches_today()`` and ``switches_in_last_hour()``.
         """
-        total = self.switches_today()
-        per_hour = self.switches_in_last_hour()
-        score = max(_MAX_SCORE - total * _DAILY_PENALTY, 0)
-        return {"score": score, "total_today": total, "per_hour": per_hour}
+        try:
+            now = time.time()
+            one_hour_ago = now - _SECONDS_PER_HOUR
+            today_start = datetime.now().replace(
+                hour=0, minute=0, second=0, microsecond=0
+            ).timestamp()
+            row = self._conn.execute(
+                """SELECT
+                     COUNT(*) as total,
+                     SUM(CASE WHEN timestamp > ? THEN 1 ELSE 0 END) as per_hour
+                   FROM context_switches
+                   WHERE timestamp > ?""",
+                (one_hour_ago, today_start),
+            ).fetchone()
+            total = row["total"] if row else 0
+            per_hour = row["per_hour"] if row else 0
+            score = max(_MAX_SCORE - total * _DAILY_PENALTY, 0)
+            return {"score": score, "total_today": total, "per_hour": per_hour}
+        except sqlite3.Error:
+            logger.exception("Failed to compute daily score")
+            return {"score": 0, "total_today": 0, "per_hour": 0}
 
     def weekly_report(self) -> list[dict]:
         try:
