@@ -69,6 +69,7 @@ class TrayManager:
         on_quit: Optional[Callable[[], None]] = None,
     ) -> None:
         self._db = db
+        self._last_icon_key: tuple[int, int] | None = None
 
         self._tray = QSystemTrayIcon()
         self._tray.setIcon(_create_tray_icon(0))
@@ -138,7 +139,12 @@ class TrayManager:
             total = score_data["total_today"]
             score = score_data["score"]
 
-            self._tray.setIcon(_create_tray_icon(per_hour, score))
+            # Only regenerate the icon if the displayed values changed.
+            icon_key = (per_hour, score)
+            if icon_key != self._last_icon_key:
+                self._tray.setIcon(_create_tray_icon(per_hour, score))
+                self._last_icon_key = icon_key
+
             self._tray.setToolTip(
                 f"ResumeFlow \u2014 Score: {score}/100 | "
                 f"{per_hour}/hr | {total} today"

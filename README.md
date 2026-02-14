@@ -79,6 +79,64 @@ ResumeFlow watches which window you're using. When you return to a window after 
 
 ## Install & Run
 
+### Step-by-Step Installation
+
+Follow these steps to install and run ResumeFlow from source.
+
+#### Prerequisites
+
+1. **Python 3.11 or newer** — check with `python3 --version` (download from [python.org](https://www.python.org/downloads/) if needed)
+2. **Git** — check with `git --version` (download from [git-scm.com](https://git-scm.com/) if needed)
+3. **Linux only:** install xdotool for window detection:
+   ```bash
+   sudo apt install xdotool        # Debian / Ubuntu
+   sudo dnf install xdotool        # Fedora
+   sudo pacman -S xdotool          # Arch
+   ```
+
+#### 1. Clone the Repository
+
+```bash
+git clone https://github.com/robofan45/v.git
+cd v
+```
+
+#### 2. Create a Virtual Environment
+
+**macOS / Linux:**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+**Windows:**
+
+```cmd
+python -m venv .venv
+.venv\Scripts\activate.bat
+```
+
+#### 3. Install Dependencies
+
+```bash
+pip install -e .
+```
+
+This installs ResumeFlow and all required packages (PyQt6, psutil, and platform-specific dependencies).
+
+#### 4. Run the App
+
+```bash
+resumeflow
+```
+
+ResumeFlow starts minimised to the **system tray**. Right-click the tray icon to access Settings, the Weekly Report, or to Quit.
+
+> **Tip:** You can also run without installing by using `python run.py` after installing PyQt6 and psutil (`pip install PyQt6 psutil`).
+
+---
+
 ### Direct Install (one command -- recommended)
 
 **macOS / Linux** -- paste this into your terminal:

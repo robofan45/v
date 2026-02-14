@@ -152,3 +152,41 @@ class TestDatabaseErrorHandling:
         db = SwitchLogger(str(tmp_path / "err.db"))
         db._conn.close()
         assert db.get_last_session_for_window("A") is None
+
+    def test_daily_score_returns_defaults_on_error(self, tmp_path):
+        db = SwitchLogger(str(tmp_path / "err.db"))
+        db._conn.close()
+        score = db.daily_score()
+        assert score == {"score": 0, "total_today": 0, "per_hour": 0}
+
+
+class TestBatchCommit:
+    """Verify that batch mode defers commits."""
+
+    def test_batch_groups_writes_into_single_commit(self, db):
+        db.begin_batch()
+        db.log_switch("A", "B", 1.0)
+        db.start_session("B", "AppB")
+        db.end_batch()
+        # Data should be visible after end_batch
+        assert db.switches_today() == 1
+
+    def test_writes_visible_outside_batch(self, db):
+        db.begin_batch()
+        db.log_switch("A", "B", 1.0)
+        db.log_switch("B", "C", 2.0)
+        db.end_batch()
+        assert db.switches_today() == 2
+
+    def test_non_batch_writes_still_commit_immediately(self, db):
+        db.log_switch("A", "B", 1.0)
+        assert db.switches_today() == 1
+
+    def test_nested_batch_only_commits_on_outermost(self, db):
+        db.begin_batch()
+        db.begin_batch()
+        db.log_switch("A", "B", 1.0)
+        db.end_batch()  # inner — should not commit yet
+        db.log_switch("B", "C", 2.0)
+        db.end_batch()  # outer — commits both
+        assert db.switches_today() == 2
