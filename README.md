@@ -2,7 +2,7 @@
 
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776ab?logo=python&logoColor=white)
 ![License MIT](https://img.shields.io/badge/License-MIT-a6e3a1)
-![Tests 112 passing](https://img.shields.io/badge/Tests-112_passing-a6e3a1)
+![Tests 150 passing](https://img.shields.io/badge/Tests-150_passing-a6e3a1)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-89b4fa)
 
 **A lightweight desktop app that helps you stay focused by tracking context switches and helping you resume work faster.**
@@ -315,7 +315,7 @@ pytest -v
 QT_QPA_PLATFORM=offscreen pytest -v
 ```
 
-112 tests covering: database CRUD, context tracking logic, window monitor dispatch, popup widget behaviour, tray icon rendering, settings persistence, dialog construction, report generation, and dashboard display.
+150 tests covering: database CRUD and error handling, context tracking logic, window monitor dispatch, popup widget behaviour, tray icon rendering and TrayManager lifecycle, settings persistence, dialog construction and validation, report generation and display, dashboard display, and theme constants.
 
 <details>
 <summary><strong>Project Structure</strong></summary>
@@ -337,7 +337,7 @@ resumeflow/
     report_dialog.py     # Weekly report with stat cards + styled table
 tests/
     conftest.py          # Shared test fixtures (qapp, db)
-    test_*.py            # 112 tests across 9 test files
+    test_*.py            # 150 tests across 10 test files
 run.py                   # Quick launcher (no install needed)
 get-resumeflow.sh        # Direct install script (curl | bash)
 install.sh               # One-command installer (macOS/Linux)
