@@ -17,14 +17,22 @@ logger = logging.getLogger(__name__)
 # Subprocess timeout for external tools (seconds).
 _CMD_TIMEOUT = 2
 
+# Warn-once flags — prevent flooding logs with identical messages every poll.
+_warned_no_pygetwindow = False
+_warned_no_appkit = False
+_warned_no_xdotool = False
+
 
 def _get_active_window_windows() -> tuple[str, str]:
     """Get active window title and app name on Windows."""
+    global _warned_no_pygetwindow
     try:
         import pygetwindow as gw  # type: ignore[import-untyped]
         import psutil
     except ImportError:
-        logger.warning("pygetwindow/psutil not installed; window tracking disabled")
+        if not _warned_no_pygetwindow:
+            logger.warning("pygetwindow/psutil not installed; window tracking disabled")
+            _warned_no_pygetwindow = True
         return ("", "")
 
     try:
@@ -59,10 +67,13 @@ def _applescript_quote(s: str) -> str:
 
 def _get_active_window_macos() -> tuple[str, str]:
     """Get active window title and app name on macOS."""
+    global _warned_no_appkit
     try:
         from AppKit import NSWorkspace  # type: ignore[import-untyped]
     except ImportError:
-        logger.warning("AppKit (pyobjc) not installed; window tracking disabled")
+        if not _warned_no_appkit:
+            logger.warning("AppKit (pyobjc) not installed; window tracking disabled")
+            _warned_no_appkit = True
         return ("", "")
 
     try:
@@ -97,6 +108,7 @@ def _get_active_window_macos() -> tuple[str, str]:
 
 def _get_active_window_linux() -> tuple[str, str]:
     """Get active window title and app name on Linux via xdotool."""
+    global _warned_no_xdotool
     title = ""
     app_name = ""
     try:
@@ -136,9 +148,11 @@ def _get_active_window_linux() -> tuple[str, str]:
             if classes:
                 app_name = classes[-1]
     except FileNotFoundError:
-        logger.warning(
-            "xdotool not found; install xdotool for window tracking on Linux"
-        )
+        if not _warned_no_xdotool:
+            logger.warning(
+                "xdotool not found; install xdotool for window tracking on Linux"
+            )
+            _warned_no_xdotool = True
     except subprocess.TimeoutExpired:
         logger.debug("xdotool timed out")
     except Exception:

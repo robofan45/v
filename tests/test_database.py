@@ -152,3 +152,53 @@ class TestDatabaseErrorHandling:
         db = SwitchLogger(str(tmp_path / "err.db"))
         db._conn.close()
         assert db.get_last_session_for_window("A") is None
+
+    def test_end_session_handles_error(self, tmp_path):
+        db = SwitchLogger(str(tmp_path / "err.db"))
+        sid = db.start_session("Win A")
+        db._conn.close()
+        # Should not raise
+        db.end_session(sid, "ctx")
+
+    def test_set_setting_handles_error(self, tmp_path):
+        db = SwitchLogger(str(tmp_path / "err.db"))
+        db._conn.close()
+        # Should not raise
+        db.set_setting("key", "value")
+
+    def test_recent_switches_returns_empty_on_error(self, tmp_path):
+        db = SwitchLogger(str(tmp_path / "err.db"))
+        db._conn.close()
+        assert db.recent_switches() == []
+
+
+class TestCleanup:
+    """Tests for the data retention cleanup method."""
+
+    def test_cleanup_removes_old_records(self, db):
+        import time
+        # Insert a switch with a very old timestamp
+        db._conn.execute(
+            """INSERT INTO context_switches
+               (timestamp, from_window, to_window, away_seconds)
+               VALUES (?, ?, ?, ?)""",
+            (time.time() - 200 * 86_400, "Old A", "Old B", 5.0),
+        )
+        db._conn.commit()
+        # Also insert a recent one
+        db.log_switch("New A", "New B", 3.0)
+
+        removed = db.cleanup(retention_days=90)
+        assert removed == 1
+        # Recent switch survives
+        assert db.switches_today() == 1
+
+    def test_cleanup_returns_zero_when_nothing_to_remove(self, db):
+        db.log_switch("A", "B", 1.0)
+        removed = db.cleanup()
+        assert removed == 0
+
+    def test_cleanup_handles_error(self, tmp_path):
+        db = SwitchLogger(str(tmp_path / "err.db"))
+        db._conn.close()
+        assert db.cleanup() == 0
