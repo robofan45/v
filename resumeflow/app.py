@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import QTimer
 
 from .context_tracker import ContextTracker, ResumeInfo
+from .dashboard import DashboardWindow
 from .database import SwitchLogger
 from .popup import ResumePopup
 from .report_dialog import ReportDialog
@@ -61,6 +62,7 @@ class ResumeFlowApp:
         # System tray
         self._tray = TrayManager(
             db=self._db,
+            on_show_dashboard=self._show_dashboard,
             on_show_settings=self._show_settings,
             on_show_report=self._show_report,
             on_quit=self._quit,
@@ -70,6 +72,9 @@ class ResumeFlowApp:
         self._poll_timer = QTimer()
         self._poll_timer.timeout.connect(self._tracker.poll)
         self._poll_timer.setInterval(int(settings.poll_interval * 1000))
+
+        # Dashboard window (hidden by default, shown on startup)
+        self._dashboard = DashboardWindow(self._db)
 
         self._shutting_down = False
 
@@ -82,6 +87,7 @@ class ResumeFlowApp:
         self._tray.show()
         self._tracker.start()
         self._poll_timer.start()
+        self._show_dashboard()
         return self._qt_app.exec()
 
     # -- signal handlers --------------------------------------------------
@@ -132,6 +138,11 @@ class ResumeFlowApp:
 
     # -- dialogs ----------------------------------------------------------
 
+    def _show_dashboard(self) -> None:
+        self._dashboard.show()
+        self._dashboard.raise_()
+        self._dashboard.activateWindow()
+
     def _show_settings(self) -> None:
         try:
             dialog = SettingsDialog(self._settings_mgr.current)
@@ -163,6 +174,7 @@ class ResumeFlowApp:
         try:
             self._poll_timer.stop()
             self._tracker.stop()
+            self._dashboard.cleanup()
             self._tray.cleanup()
             self._db.close()
         except Exception:
