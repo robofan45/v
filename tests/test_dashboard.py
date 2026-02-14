@@ -32,7 +32,7 @@ class TestDashboardWindow:
         event = QCloseEvent()
         win.closeEvent(event)
         assert not win.isVisible()
-        assert event.isAccepted() is False
+        assert not event.isAccepted()
         win.cleanup()
 
     def test_stat_cards_exist(self, qapp, db):
