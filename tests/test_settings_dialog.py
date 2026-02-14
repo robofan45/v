@@ -48,3 +48,40 @@ class TestSettingsDialog:
         assert result.quiet_hours_start == original.quiet_hours_start
         assert result.quiet_hours_end == original.quiet_hours_end
         dialog.close()
+
+    def test_away_threshold_range(self, qapp):
+        from resumeflow.settings_dialog import SettingsDialog
+        dialog = SettingsDialog(AppSettings())
+        assert dialog._away_spin.minimum() == 30
+        assert dialog._away_spin.maximum() == 300
+        dialog.close()
+
+    def test_poll_interval_range(self, qapp):
+        from resumeflow.settings_dialog import SettingsDialog
+        dialog = SettingsDialog(AppSettings())
+        assert dialog._poll_spin.minimum() == 0.5
+        assert dialog._poll_spin.maximum() == 5.0
+        dialog.close()
+
+    def test_opacity_range(self, qapp):
+        from resumeflow.settings_dialog import SettingsDialog
+        dialog = SettingsDialog(AppSettings())
+        assert dialog._opacity_spin.minimum() == 0.5
+        assert dialog._opacity_spin.maximum() == 1.0
+        dialog.close()
+
+    def test_duration_range(self, qapp):
+        from resumeflow.settings_dialog import SettingsDialog
+        dialog = SettingsDialog(AppSettings())
+        assert dialog._duration_spin.minimum() == 0
+        assert dialog._duration_spin.maximum() == 60
+        dialog.close()
+
+    def test_position_combo_options(self, qapp):
+        from resumeflow.settings_dialog import SettingsDialog
+        dialog = SettingsDialog(AppSettings())
+        options = [dialog._position_combo.itemText(i) for i in range(dialog._position_combo.count())]
+        assert "cursor" in options
+        assert "top-right" in options
+        assert "bottom-right" in options
+        dialog.close()

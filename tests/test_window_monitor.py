@@ -114,3 +114,44 @@ class TestMacOSDetection:
         title, app = _get_active_window_macos()
         assert title == ""
         assert app == ""
+
+
+class TestWarnOnce:
+    """Verify warn-once flags prevent repeated warnings."""
+
+    def setup_method(self):
+        """Reset warn-once flags before each test."""
+        import resumeflow.window_monitor as wm
+        wm._warned_no_pygetwindow = False
+        wm._warned_no_appkit = False
+        wm._warned_no_xdotool = False
+
+    @patch("resumeflow.window_monitor.subprocess.run")
+    def test_linux_warns_once_for_xdotool(self, mock_run):
+        import resumeflow.window_monitor as wm
+        mock_run.side_effect = FileNotFoundError("xdotool")
+        with patch("resumeflow.window_monitor.logger") as mock_logger:
+            _get_active_window_linux()
+            _get_active_window_linux()
+            _get_active_window_linux()
+            assert mock_logger.warning.call_count == 1
+            assert wm._warned_no_xdotool is True
+
+    def test_windows_warns_once(self):
+        import resumeflow.window_monitor as wm
+        with patch("resumeflow.window_monitor.logger") as mock_logger:
+            _get_active_window_windows()
+            _get_active_window_windows()
+            _get_active_window_windows()
+            # On Linux (no pygetwindow), warning fires once
+            assert mock_logger.warning.call_count == 1
+            assert wm._warned_no_pygetwindow is True
+
+    def test_macos_warns_once(self):
+        import resumeflow.window_monitor as wm
+        with patch("resumeflow.window_monitor.logger") as mock_logger:
+            _get_active_window_macos()
+            _get_active_window_macos()
+            _get_active_window_macos()
+            assert mock_logger.warning.call_count == 1
+            assert wm._warned_no_appkit is True

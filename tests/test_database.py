@@ -152,3 +152,86 @@ class TestDatabaseErrorHandling:
         db = SwitchLogger(str(tmp_path / "err.db"))
         db._conn.close()
         assert db.get_last_session_for_window("A") is None
+
+    def test_end_session_error_does_not_raise(self, tmp_path):
+        db = SwitchLogger(str(tmp_path / "err.db"))
+        db._conn.close()
+        db.end_session(1, "ctx")  # Should not raise
+
+    def test_set_setting_error_does_not_raise(self, tmp_path):
+        db = SwitchLogger(str(tmp_path / "err.db"))
+        db._conn.close()
+        db.set_setting("key", "value")  # Should not raise
+
+    def test_recent_switches_returns_empty_on_error(self, tmp_path):
+        db = SwitchLogger(str(tmp_path / "err.db"))
+        db._conn.close()
+        assert db.recent_switches() == []
+
+    def test_cleanup_returns_zero_on_error(self, tmp_path):
+        db = SwitchLogger(str(tmp_path / "err.db"))
+        db._conn.close()
+        assert db.cleanup() == 0
+
+
+class TestRecentSwitches:
+    def test_empty_db(self, db):
+        assert db.recent_switches() == []
+
+    def test_returns_recent_first(self, db):
+        db.log_switch("A", "B", 10.0)
+        db.log_switch("B", "C", 20.0)
+        db.log_switch("C", "D", 30.0)
+        result = db.recent_switches(2)
+        assert len(result) == 2
+        assert result[0]["from_window"] == "C"  # Most recent first
+        assert result[1]["from_window"] == "B"
+
+    def test_respects_limit(self, db):
+        for i in range(10):
+            db.log_switch(f"W{i}", f"W{i+1}", float(i))
+        assert len(db.recent_switches(5)) == 5
+        assert len(db.recent_switches(20)) == 10
+
+    def test_has_expected_fields(self, db):
+        db.log_switch("A", "B", 42.0)
+        result = db.recent_switches(1)
+        assert len(result) == 1
+        entry = result[0]
+        assert "timestamp" in entry
+        assert "from_window" in entry
+        assert "to_window" in entry
+        assert "away_seconds" in entry
+        assert entry["from_window"] == "A"
+        assert entry["to_window"] == "B"
+        assert entry["away_seconds"] == pytest.approx(42.0)
+
+    def test_default_limit(self, db):
+        for i in range(25):
+            db.log_switch(f"W{i}", f"W{i+1}", float(i))
+        result = db.recent_switches()
+        assert len(result) == 20  # default limit
+
+
+class TestCleanup:
+    def test_cleanup_removes_old_records(self, db):
+        import time
+        db.log_switch("A", "B", 5.0)
+        assert db.switches_today() == 1
+        db._conn.execute(
+            "UPDATE context_switches SET timestamp = ?",
+            (time.time() - 200 * 86400,),
+        )
+        db._conn.commit()
+        removed = db.cleanup(retention_days=90)
+        assert removed >= 1
+
+    def test_cleanup_no_old_records(self, db):
+        db.log_switch("A", "B", 5.0)
+        removed = db.cleanup(retention_days=90)
+        assert removed == 0
+
+    def test_daily_score_per_hour(self, db):
+        db.log_switch("A", "B", 5.0)
+        score = db.daily_score()
+        assert score["per_hour"] >= 1
